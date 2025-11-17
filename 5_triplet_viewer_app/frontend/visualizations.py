@@ -5,7 +5,7 @@ Visualization utilities for embedding space and similarity analysis
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import umap
+from umap.umap_ import UMAP
 from typing import Dict
 
 
@@ -24,7 +24,7 @@ def create_3d_visualization(embeddings_data: Dict):
     types = embeddings_data['types']
 
     # Reduce to 3D using UMAP
-    reducer = umap.UMAP(n_components=3, random_state=42, n_neighbors=min(15, len(embeddings)-1))
+    reducer = UMAP(n_components=3, random_state=42, n_neighbors=min(15, len(embeddings)-1))
     coords_3d = reducer.fit_transform(embeddings)
 
     # Color mapping
@@ -110,7 +110,7 @@ def create_2d_visualization(embeddings_data: Dict):
     types = embeddings_data['types']
 
     # Reduce to 2D using UMAP
-    reducer = umap.UMAP(n_components=2, random_state=42, n_neighbors=min(15, len(embeddings)-1))
+    reducer = UMAP(n_components=2, random_state=42, n_neighbors=min(15, len(embeddings)-1))
     coords_2d = reducer.fit_transform(embeddings)
 
     # Create DataFrame for Plotly Express
@@ -189,7 +189,7 @@ def create_global_3d_visualization(embeddings_data: Dict):
     if n_neighbors < 2:
         n_neighbors = 2
 
-    reducer = umap.UMAP(n_components=3, random_state=42, n_neighbors=n_neighbors)
+    reducer = UMAP(n_components=3, random_state=42, n_neighbors=n_neighbors)
     coords_3d = reducer.fit_transform(embeddings)
 
     # Color mapping

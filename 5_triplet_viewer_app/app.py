@@ -50,6 +50,8 @@ if 'edited_items' not in st.session_state:
     st.session_state.edited_items = set()
 if 'global_embeddings' not in st.session_state:
     st.session_state.global_embeddings = None
+if 'model' not in st.session_state:
+    st.session_state.model = None
 
 
 
@@ -84,6 +86,64 @@ with st.sidebar:
                     st.success(f"Loaded {len(dataset)} examples")
             except Exception as e:
                 st.error(f"Error loading dataset: {e}")
+
+    # Model loading section
+    st.markdown('<div class="section-header">Embedding Model</div>', unsafe_allow_html=True)
+
+    if st.session_state.model is None:
+        # Model source selection
+        model_source = st.radio(
+            "Model source",
+            ["Inference Server", "Local Model"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+
+        if model_source == "Inference Server":
+            # Try to load from config
+            config_path = st.text_input("Config path", value="./configs/config.yml")
+
+            if st.button("Connect to Server", use_container_width=True):
+                with st.spinner("Connecting to inference server..."):
+                    try:
+                        from backend.embeddings import load_embedding_model
+                        st.session_state.model = load_embedding_model(
+                            config_path=config_path,
+                            use_server=True
+                        )
+                        st.success("Connected to server!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error connecting to server: {e}")
+                        st.caption("Will fallback to local model if configured")
+        else:
+            # Local model
+            model_name = st.text_input(
+                "Model name",
+                value="sentence-transformers/all-MiniLM-L6-v2"
+            )
+
+            if st.button("Load Local Model", use_container_width=True):
+                with st.spinner("Loading local model..."):
+                    try:
+                        from backend.embeddings import load_embedding_model
+                        st.session_state.model = load_embedding_model(
+                            model_name=model_name,
+                            use_server=False
+                        )
+                        st.success("Model loaded!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error loading model: {e}")
+    else:
+        st.success("✓ Model loaded")
+        # Show model info
+        model_type = type(st.session_state.model).__name__
+        st.caption(f"Type: {model_type}")
+
+        if st.button("Unload Model", use_container_width=True):
+            st.session_state.model = None
+            st.rerun()
 
     if st.session_state.dataset:
         st.markdown('<div class="section-header">Export</div>', unsafe_allow_html=True)
@@ -170,14 +230,14 @@ else:
         render_similarity_analysis_tab(st.session_state.similarities)
 
     with tab4:
-        render_3d_visualization_tab(item, st.session_state.current_index)
+        render_3d_visualization_tab(item, st.session_state.current_index, st.session_state.model)
 
     with tab5:
-        render_rag_testing_tab(st.session_state.dataset)
+        render_rag_testing_tab(st.session_state.dataset, st.session_state.model)
 
 # Global UMAP Visualization Section
 if st.session_state.dataset:
-    render_global_visualization(st.session_state.dataset)
+    render_global_visualization(st.session_state.dataset, st.session_state.model)
 
 st.markdown("---")
 st.caption("FFGen Triplet Viewer | Built with Streamlit")

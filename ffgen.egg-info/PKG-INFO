@@ -19,6 +19,12 @@ Requires-Dist: pyarrow>=21.0.0
 Requires-Dist: seaborn>=0.13.2
 Requires-Dist: flask>=3.1.2
 Requires-Dist: flask-cors>=6.0.1
+Requires-Dist: streamlit>=1.51.0
+Requires-Dist: plotly>=6.3.1
+Requires-Dist: openai>=2.7.1
+Requires-Dist: umap>=0.1.1
+Requires-Dist: numpy>=2.3.3
+Requires-Dist: tree-sitter-languages>=1.10.2
 Provides-Extra: viewer
 Requires-Dist: streamlit>=1.30.0; extra == "viewer"
 Requires-Dist: plotly>=6.3.1; extra == "viewer"
@@ -461,34 +467,59 @@ See `TRAINING_DIAGNOSIS_REPORT.md` and `visualization/model_comparison.png` for 
 
 ## Inference with Fallback Mechanism
 
-FFGen implements a robust fallback system for inference that prioritizes external servers but gracefully degrades to local models when unavailable.
+FFGen implements a robust fallback system for inference that prioritizes external servers but gracefully degrades to local models when unavailable. All inference settings are now centralized in the configuration file.
 
-### Architecture
+### Configuration-Based Setup (Recommended) 🆕
 
+Configure inference endpoints in `configs/config.yml`:
+
+```yaml
+inference:
+  # LLM for text generation
+  llm:
+    url: "http://localhost:1234/v1"
+    model_name: "llama-3.2-3b-instruct"
+    timeout: 5.0
+    fallback_model: null  # Optional local fallback
+
+  # Embeddings for negative mining
+  embeddings:
+    url: "http://localhost:8000/v1"
+    model_name: "default"
+    timeout: 5.0
+    fallback_model: "sentence-transformers/all-MiniLM-L6-v2"
 ```
-Priority:
-1. OpenAI-compatible server (llama.cpp, LM Studio)
-2. Fallback to local SentenceTransformers
+
+**Usage**:
+```python
+from utils.inference_service import InferenceServer
+
+# Load from config (recommended)
+llm = InferenceServer.from_config("./configs/config.yml", service_type="llm")
+embedder = InferenceServer.from_config("./configs/config.yml", service_type="embeddings")
+
+# Use the services
+response = await llm.chat([{"role": "user", "content": "Hello"}])
+embeddings = await embedder.encode(["text1", "text2"])
 ```
 
-### Usage
+### Manual Configuration (Legacy)
 
 **Embeddings with Fallback**:
 ```python
 from utils.inference_service import InferenceServer
 
-# Try server first, fallback to local
+# Manual configuration (still supported)
 embedder = InferenceServer(
     url="http://localhost:8000/v1",
     fallback_model="sentence-transformers/all-MiniLM-L6-v2"
 )
 
-# Encoding works with either backend
 embeddings = await embedder.encode(["text1", "text2"])
 print(f"Using fallback: {embedder.is_using_fallback()}")
 ```
 
-**LLM Chat (Server Only)**:
+**LLM Chat**:
 ```python
 llm = InferenceServer(
     url="http://localhost:1234/v1",
@@ -499,6 +530,16 @@ response = await llm.chat([
     {"role": "user", "content": "Translate 'bread' to Italian"}
 ])
 ```
+
+### Architecture
+
+```
+Priority:
+1. OpenAI-compatible server (llama.cpp, LM Studio, vLLM)
+2. Fallback to local SentenceTransformers (if configured)
+```
+
+📖 **Detailed Documentation**: See [`docs/INFERENCE_CONFIG.md`](docs/INFERENCE_CONFIG.md) for complete configuration guide and examples.
 
 ### Server Setup
 

@@ -803,14 +803,20 @@ dependencies = [
     { name = "datasets" },
     { name = "flask" },
     { name = "flask-cors" },
+    { name = "numpy" },
+    { name = "openai" },
     { name = "pandas" },
+    { name = "plotly" },
     { name = "pyarrow" },
     { name = "scikit-learn" },
     { name = "seaborn" },
     { name = "sentence-transformers" },
     { name = "sentencepiece" },
+    { name = "streamlit" },
     { name = "torch" },
     { name = "transformers" },
+    { name = "tree-sitter-languages" },
+    { name = "umap" },
 ]
 
 [package.optional-dependencies]
@@ -887,9 +893,12 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'monitoring'", specifier = ">=3.10.7" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.5.0" },
     { name = "nbformat", marker = "extra == 'dev'", specifier = ">=5.10.4" },
+    { name = "numpy", specifier = ">=2.3.3" },
+    { name = "openai", specifier = ">=2.7.1" },
     { name = "openai", marker = "extra == 'generation'", specifier = ">=2.7.1" },
     { name = "pandas", specifier = ">=2.3.3" },
     { name = "pillow", marker = "extra == 'analysis'", specifier = ">=11.3.0" },
+    { name = "plotly", specifier = ">=6.3.1" },
     { name = "plotly", marker = "extra == 'viewer'", specifier = ">=6.3.1" },
     { name = "pyarrow", specifier = ">=21.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
@@ -899,13 +908,16 @@ requires-dist = [
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "sentence-transformers", specifier = ">=5.1.1" },
     { name = "sentencepiece", specifier = ">=0.2.1" },
+    { name = "streamlit", specifier = ">=1.51.0" },
     { name = "streamlit", marker = "extra == 'viewer'", specifier = ">=1.30.0" },
     { name = "tensorboard", marker = "extra == 'monitoring'", specifier = ">=2.20.0" },
     { name = "torch", specifier = ">=2.8.0" },
     { name = "transformers", specifier = ">=4.57.1" },
     { name = "tree-sitter", marker = "extra == 'analysis'", specifier = "==0.20.1" },
     { name = "tree-sitter-c", marker = "extra == 'analysis'", specifier = ">=0.24.1" },
+    { name = "tree-sitter-languages", specifier = ">=1.10.2" },
     { name = "tree-sitter-languages", marker = "extra == 'analysis'", specifier = ">=1.10.2" },
+    { name = "umap", specifier = ">=0.1.1" },
     { name = "umap-learn", marker = "extra == 'viewer'", specifier = ">=0.5.9.post2" },
 ]
 provides-extras = ["viewer", "generation", "monitoring", "dev", "rag", "analysis", "all"]
@@ -4592,6 +4604,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/95/32/1a225d6164441be76
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5c/23/c7abc0ca0a1526a0774eca151daeb8de62ec457e77262b66b359c3c7679e/tzdata-2025.2-py2.py3-none-any.whl", hash = "sha256:1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8", size = 347839, upload-time = "2025-03-23T13:54:41.845Z" },
 ]
+
+[[package]]
+name = "umap"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4b/46/08ab68936625400fe690684428d4db4764f49b406782cc133df1d0299d06/umap-0.1.1.tar.gz", hash = "sha256:5d08c1a335cc7ee175811a99dc9356d3d4b8567ad082e2b1b205198cf27c4256", size = 3191, upload-time = "2016-01-20T16:33:11.724Z" }
 
 [[package]]
 name = "umap-learn"

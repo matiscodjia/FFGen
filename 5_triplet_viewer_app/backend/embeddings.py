@@ -24,7 +24,7 @@ def load_embedding_model(
     config_path: str = "./configs/config.yml",
     server_url: str = None,
     use_server: bool = True
-) -> Union[SentenceTransformer, InferenceServer]:
+) -> Union[SentenceTransformer, "InferenceServer"]:
     """
     Load embedding model with fallback support.
 
@@ -73,7 +73,7 @@ def load_embedding_model(
         raise ValueError("Either model_name or valid config_path must be provided")
 
 
-def _encode_with_model(model: Union[SentenceTransformer, InferenceServer], texts: List[str], **kwargs):
+def _encode_with_model(model: Union[SentenceTransformer, "InferenceServer"], texts: List[str], **kwargs):
     """
     Unified encoding function that works with both SentenceTransformer and InferenceServer.
 
@@ -111,7 +111,7 @@ def _encode_with_model(model: Union[SentenceTransformer, InferenceServer], texts
 
 def compute_embeddings_for_visualization(
     item: Dict,
-    model: Union[SentenceTransformer, InferenceServer]
+    model: Union[SentenceTransformer, "InferenceServer"]
 ) -> Dict:
     """
     Compute embeddings for anchor, positive, and negatives for single triplet visualization.
@@ -147,7 +147,7 @@ def compute_embeddings_for_visualization(
 def compute_global_embeddings(
     dataset: List[Dict],
     n_samples: int,
-    model: Union[SentenceTransformer, InferenceServer]
+    model: Union[SentenceTransformer, "InferenceServer"]
 ) -> Dict:
     """
     Compute embeddings for N random triplets from dataset for global visualization.
