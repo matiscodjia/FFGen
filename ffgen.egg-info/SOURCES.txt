@@ -13,6 +13,7 @@ setup.py
 4_model_training/evaluate_embedding.py
 4_model_training/ranking_eval.py
 4_model_training/train_embedding.py
+4_model_training/train_embedding_lora.py
 ffgen.egg-info/PKG-INFO
 ffgen.egg-info/SOURCES.txt
 ffgen.egg-info/dependency_links.txt

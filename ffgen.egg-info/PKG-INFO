@@ -25,6 +25,7 @@ Requires-Dist: openai>=2.7.1
 Requires-Dist: umap>=0.1.1
 Requires-Dist: numpy>=2.3.3
 Requires-Dist: tree-sitter-languages>=1.10.2
+Requires-Dist: peft>=0.18.0
 Provides-Extra: viewer
 Requires-Dist: streamlit>=1.30.0; extra == "viewer"
 Requires-Dist: plotly>=6.3.1; extra == "viewer"

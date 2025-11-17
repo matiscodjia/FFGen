@@ -16,6 +16,7 @@ openai>=2.7.1
 umap>=0.1.1
 numpy>=2.3.3
 tree-sitter-languages>=1.10.2
+peft>=0.18.0
 
 [all]
 ffgen[analysis,dev,generation,monitoring,rag,viewer]
