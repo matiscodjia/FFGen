@@ -1,0 +1,14 @@
+# FFGen Triplet Viewer Requirements
+
+# Core dependencies
+streamlit>=1.28.0
+sentence-transformers>=2.2.0
+plotly>=5.14.0
+umap-learn>=0.5.3
+scikit-learn>=1.3.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Optional dependencies
+# Uncomment to enable RAG testing features
+# chromadb>=0.4.0

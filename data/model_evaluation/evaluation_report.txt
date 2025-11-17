@@ -1,0 +1,59 @@
+================================================================================
+RAPPORT D'ÉVALUATION DES MODÈLES D'EMBEDDING
+================================================================================
+
+OBJECTIF:
+Évaluer la capacité naturelle des modèles (sans fine-tuning) à :
+  1. Rapprocher le code du feedback positif (distance FAIBLE)
+  2. Séparer le code des feedbacks négatifs (distance ÉLEVÉE)
+  3. Maximiser la marge de séparation = distance_neg - distance_pos
+
+--------------------------------------------------------------------------------
+CLASSEMENTS (par Marge de Séparation):
+--------------------------------------------------------------------------------
+
+#1 all-MiniLM-L6-v2
+   Nom complet: sentence-transformers/all-MiniLM-L6-v2
+   Marge de Séparation: 0.094613
+   Distance Positive Moyenne: 0.626064
+   Distance Négative Moyenne: 0.720677
+   Médiane Distance Positive: 0.626428
+   Médiane Distance Négative: 0.722096
+   ⭐ MEILLEUR MODÈLE - Recommandé pour le fine-tuning
+
+#2 embeddinggemma-300m
+   Nom complet: google/embeddinggemma-300m
+   Marge de Séparation: 0.065343
+   Distance Positive Moyenne: 0.662045
+   Distance Négative Moyenne: 0.727388
+   Médiane Distance Positive: 0.661987
+   Médiane Distance Négative: 0.735711
+
+#3 SFR-Embedding-Code-400M_R
+   Nom complet: Salesforce/SFR-Embedding-Code-400M_R
+   Marge de Séparation: 0.038192
+   Distance Positive Moyenne: 0.367416
+   Distance Négative Moyenne: 0.405608
+   Médiane Distance Positive: 0.374348
+   Médiane Distance Négative: 0.404996
+
+#4 multilingual-e5-large
+   Nom complet: intfloat/multilingual-e5-large
+   Marge de Séparation: 0.009087
+   Distance Positive Moyenne: 0.193973
+   Distance Négative Moyenne: 0.203061
+   Médiane Distance Positive: 0.196466
+   Médiane Distance Négative: 0.204390
+
+--------------------------------------------------------------------------------
+RECOMMANDATION:
+--------------------------------------------------------------------------------
+
+✓ Meilleur Modèle: sentence-transformers/all-MiniLM-L6-v2
+
+Ce modèle démontre la meilleure séparation naturelle entre le code et les
+feedbacks négatifs tout en maintenant la proximité avec le feedback positif.
+
+Marge de Séparation: 0.094613
+Ce modèle est le meilleur candidat pour le fine-tuning.
+

@@ -1,0 +1,23 @@
+{
+  "recall": {
+    "1": 0.0,
+    "5": 0.0,
+    "10": 0.0
+  },
+  "mrr": 0.0027267442460295914,
+  "ndcg": {
+    "5": 0.0,
+    "10": 0.0
+  },
+  "map": 0.0027267442460295914,
+  "metadata": {
+    "n_queries": 100,
+    "n_corpus": 6102,
+    "model_path": "SentenceTransformer(\n  (0): Transformer({'max_seq_length': 2048, 'do_lower_case': False, 'architecture': 'Gemma3TextModel'})\n  (1): Pooling({'word_embedding_dimension': 768, 'pooling_mode_cls_token': False, 'pooling_mode_mean_tokens': True, 'pooling_mode_max_tokens': False, 'pooling_mode_mean_sqrt_len_tokens': False, 'pooling_mode_weightedmean_tokens': False, 'pooling_mode_lasttoken': False, 'include_prompt': True})\n  (2): Dense({'in_features': 768, 'out_features': 3072, 'bias': False, 'activation_function': 'torch.nn.modules.linear.Identity'})\n  (3): Dense({'in_features': 3072, 'out_features': 768, 'bias': False, 'activation_function': 'torch.nn.modules.linear.Identity'})\n  (4): Normalize()\n)",
+    "k_values": [
+      1,
+      5,
+      10
+    ]
+  }
+}

@@ -1,0 +1,76 @@
+# Configuration for Judge Models
+# Use these to evaluate and correct feedback quality
+
+# ===================================================================
+# OPTION 1: Local Models (via LM Studio, Ollama, etc.)
+# ===================================================================
+local_llm:
+  base_url: "http://localhost:1234/v1"
+  models:
+    - "llama-3.1-70b-instruct"      # Llama 3.1 70B (high quality)
+    - "qwen2.5-32b-instruct"        # Qwen 2.5 32B (good balance)
+    - "mixtral-8x22b-instruct"      # Mixtral 8x22B (MoE, fast)
+
+# ===================================================================
+# OPTION 2: OpenRouter (Cloud API for various models)
+# ===================================================================
+openrouter:
+  base_url: "https://openrouter.ai/api/v1"
+  api_key_env: "OPENROUTER_API_KEY"  # Set this in your environment
+  models:
+    # Open Source Models
+    - "meta-llama/llama-3.1-70b-instruct"
+    - "meta-llama/llama-3.1-405b-instruct"  # Very large, expensive
+    - "qwen/qwen-2.5-72b-instruct"
+    - "mistralai/mixtral-8x22b-instruct"
+
+    # Proprietary Models
+    - "openai/gpt-4-turbo"
+    - "openai/gpt-4o"
+    - "anthropic/claude-3.5-sonnet"
+    - "google/gemini-pro-1.5"
+
+# ===================================================================
+# OPTION 3: Together.AI (Fast inference for OSS models)
+# ===================================================================
+together:
+  base_url: "https://api.together.xyz/v1"
+  api_key_env: "TOGETHER_API_KEY"
+  models:
+    - "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
+    - "Qwen/Qwen2.5-72B-Instruct-Turbo"
+    - "mistralai/Mixtral-8x22B-Instruct-v0.1"
+
+# ===================================================================
+# RECOMMENDED CONFIGURATIONS
+# ===================================================================
+
+# Best Quality (Expensive)
+best_quality:
+  provider: "openrouter"
+  model: "anthropic/claude-3.5-sonnet"
+  batch_size: 2
+
+# Best Open Source
+best_oss:
+  provider: "openrouter"  # or "together" or "local_llm"
+  model: "meta-llama/llama-3.1-70b-instruct"
+  batch_size: 4
+
+# Good Balance (Quality/Speed/Cost)
+balanced:
+  provider: "together"
+  model: "Qwen/Qwen2.5-72B-Instruct-Turbo"
+  batch_size: 8
+
+# Budget Friendly
+budget:
+  provider: "local_llm"
+  model: "qwen2.5-32b-instruct"
+  batch_size: 16
+
+# Fast Local (if you have GPU)
+local:
+  provider: "local_llm"
+  model: "llama-3.1-70b-instruct"  # Use quantized version (Q4_K_M or Q5_K_M)
+  batch_size: 4

@@ -1,0 +1,143 @@
+# FFGen Experiment Configuration Template
+# Copy this file and customize for your experiments
+
+# ===================================================================
+#                     EXPERIMENT CONFIGURATION
+# ===================================================================
+
+# --- Experiment ID ---
+run_id: "Exp-XXX"  # Change this for each new experiment
+
+# ===================================================================
+# STAGE 1: DATA ACQUISITION
+# ===================================================================
+paths:
+  # Source directory containing code files
+  source_code_dir: "./codes"
+
+  # Output file for extracted and parsed code (generated once)
+  processed_collection: "./data/processed_collection.parquet"
+
+# ===================================================================
+# STAGE 2: DATA PROCESSING (Feedback Generation)
+# ===================================================================
+generation:
+  # LLM model for feedback generation
+  llm_model: "llama-3.2-3b-instruct"
+
+  # Batch size for LLM inference
+  batch_size: 8
+
+  # Multi-agent feedback generation pipeline
+  # Each agent processes the output of the previous one
+  agents:
+    # Agent 1: Initial feedback generation
+    - agent: "tutor"
+      prompt_file: "./prompts/agent1_tutor.txt"
+      input_col: "code_snippet"
+      output_col: "generated_feedback"
+
+    # Agent 2: Refine and improve feedback
+    - agent: "editor"
+      prompt_file: "./prompts/agent2_editor.txt"
+      input_col: "generated_feedback"
+      output_col: "refined_feedback"
+
+    # Agent 3: Generate negative examples (optional, for triplet loss)
+    - agent: "adversary"
+      prompt_file: "./prompts/agent3_adversary.txt"
+      input_col: "generated_feedback"
+      output_col: "negative_feedback"
+
+    # Agent 4: Extract conceptual information (optional)
+    # - agent: "conceptual"
+    #   prompt_file: "./prompts/agent4_conceptual.txt"
+    #   input_col: "refined_feedback"
+    #   output_col: "conceptual_feedback"
+
+  # Final training dataset output
+  final_dataset_file: "./data/Exp-XXX_dataset.jsonl"
+
+# ===================================================================
+# STAGE 2.5: HARD NEGATIVE MINING (Optional but Recommended)
+# ===================================================================
+hard_negative_mining:
+  # Enable/disable hard negative mining
+  enabled: true  # Set to false to use only LLM-generated negatives
+
+  # Embedding model for computing cosine similarities
+  # Choose a model appropriate for code understanding
+  embedding_model: "google/embeddinggemma-300m"
+  # Other options:
+  # - "google/embeddinggemma-300m"
+  # - "Salesforce/SFR-Embedding-Code-400M_R"
+  # - "BAAI/bge-code-v1"
+  # - "jinaai/jina-embeddings-v2-base-code"
+
+  # Mining strategy
+  # - "hardest": Most similar (hardest to distinguish) - RECOMMENDED
+  # - "semi-hard": Medium difficulty
+  # - "random": Random from top-k candidates
+  strategy: "hardest"
+
+  # Number of top candidates to consider
+  top_k: 50
+
+  # Batch size for encoding (reduce if OOM)
+  batch_size: 32
+
+# ===================================================================
+# STAGE 3: MODEL TRAINING
+# ===================================================================
+training:
+  # Training mode: 'mnrl' or 'triplet'
+  # - mnrl: Multiple Negatives Ranking Loss (requires sentence1, sentence2)
+  # - triplet: Triplet Loss (requires anchor, positive, negative)
+  mode: "triplet"
+
+  # Base embedding model to finetune
+  base_embedding_model: "google/embeddinggemma-300m"
+  # Other options:
+  # - "sentence-transformers/all-MiniLM-L6-v2"
+  # - "intfloat/multilingual-e5-large"
+  # - "microsoft/graphcodebert-base"
+
+  # Column mapping for training data
+  # For MNRL mode, use:
+  # data_columns:
+  #   sentence1: "code_snippet"
+  #   sentence2: "refined_feedback"
+
+  # For Triplet mode, use:
+  data_columns:
+    anchor: "code_snippet"
+    positive: "refined_feedback"
+    negative: "negative_feedback"
+
+  # Training hyperparameters
+  hyperparameters:
+    num_epochs: 5
+    batch_size: 16
+    learning_rate: 0.00032
+    warmup_ratio: 0.1
+    triplet_margin: 0.5  # Only used in triplet mode
+
+  # Evaluation configuration
+  # Options: 'ir' (Information Retrieval) or 'triplet'
+  evaluator_type: "triplet"
+
+  # Metric to optimize
+  # For triplet evaluator:
+  metric_for_best_model: "validation-set_cosine_accuracy"
+  # For IR evaluator:
+  # metric_for_best_model: "validation-ir-eval_cosine_ndcg@10"
+
+  # Output directory for trained models
+  model_output_dir: "./models"
+
+# ===================================================================
+# RESULTS REPORTING
+# ===================================================================
+reporting:
+  # CSV file to log experiment results
+  report_file: "./results.csv"
