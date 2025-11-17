@@ -29,23 +29,21 @@ paths:
   source_code_dir: "./codes"
   # Fichier de sortie de la phase 1 (ne sera généré qu'une fois)
   processed_collection: "./data/processed_collection.parquet"
-  # Activer le calcul de l'AST (nécessite tree-sitter-languages)
-  compute_ast: false  # Set to true to compute AST representations (requires C parser)
 
 generation:
   # Le "cerveau" de vos agents
-  llm_model: "llama-3.2-3b-instruct"  #"mistralai/Codestral-22B-v0.1" 
+  llm_model: "llama-3.2-3b-instruct"  #"mistralai/Codestral-22B-v0.1"
   batch_size: 8
-  
-  # L'entrée de l'agent 1. Options: "code_snippet" ou "code_ast_structural"
+
+  # L'entrée de l'agent 1
   anchor_input_column: "code_snippet"
-  
+
   # Définissez la chaîne d'agents à exécuter
   # Le 'output_col' d'un agent peut être l''input_col' du suivant
   agents:
     - agent: "tutor"
       prompt_file: "./prompts/agent1_tutor.txt"
-      input_col: "code_snippet" # 'code_snippet' ou 'code_ast_structural'
+      input_col: "code_snippet"
       output_col: "generated_feedback"
       
     - agent: "editor"
@@ -91,8 +89,8 @@ training:
   # 'mnrl' utilise 'sentence1' et 'sentence2'
   # 'triplet' utilise 'anchor', 'positive', 'negative'
   data_columns:
-    #sentence1: "code_snippet"      # 'code_snippet' ou 'code_ast_structural'
-    #sentence2: "refined_feedback"  # 'refined_feedback'
+    #sentence1: "code_snippet"
+    #sentence2: "refined_feedback"
      anchor: "code_snippet"
      positive: "refined_feedback"
      negative: "negative_feedback" 

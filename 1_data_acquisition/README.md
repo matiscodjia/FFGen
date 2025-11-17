@@ -8,7 +8,6 @@ This directory contains modules for extracting, parsing, and validating source c
 Main data acquisition module that:
 - Recursively scans directories for source code files
 - Extracts code snippets and metadata
-- Parses code into Abstract Syntax Trees (AST) using tree-sitter (optional not used for now)
 - Generates unique identifiers
 - Outputs structured data in parquet format
 
@@ -49,7 +48,6 @@ Stage 1 produces a parquet file with the following schema:
 | `author_id` | string | Anonymized author identifier |
 | `code_snippet` | string | Extracted code content |
 | `header`| string | Extracted function signature or instructions|
-| `code_ast_structural` | string | Linearized AST representation (optional) |
 
 ## Configuration
 
@@ -63,8 +61,4 @@ paths:
 
 ## Supported Languages
 
-Currently supports C code via tree-sitter. To add support for other languages:
-
-1. Install appropriate tree-sitter grammar
-2. Update parser initialization in `ingest_code.py`
-3. Adjust AST linearization logic if needed
+Currently supports C code files (.c extension).

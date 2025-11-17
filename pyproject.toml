@@ -29,7 +29,6 @@ dependencies = [
     "openai>=2.7.1",
     "umap>=0.1.1",
     "numpy>=2.3.3",
-    "tree-sitter-languages>=1.10.2",
     "peft>=0.18.0",
 ]
 
@@ -75,9 +74,6 @@ analysis = [
     "bertopic>=0.17.3",
     "einops>=0.8.1",
     "pillow>=11.3.0",
-    "tree-sitter==0.20.1",
-    "tree-sitter-c>=0.24.1",
-    "tree-sitter-languages>=1.10.2",
 ]
 
 # All dependencies
