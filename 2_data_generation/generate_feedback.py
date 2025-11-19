@@ -9,6 +9,11 @@ from openai import AsyncOpenAI
 from typing import Dict, Any, List
 import asyncio
 
+# Disable HTTP logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -95,31 +100,74 @@ async def call_llm(messages):
         )
         return resp.choices[0].message.content.strip()
 
+async def generate_paraphrases(
+    original_feedback: str,
+    num_paraphrases: int,
+    paraphrase_prompt_template: str
+) -> List[str]:
+    """
+    Generate multiple paraphrases of a given feedback.
+
+    Args:
+        original_feedback: The original feedback text to paraphrase
+        num_paraphrases: Number of paraphrases to generate
+        paraphrase_prompt_template: Template for the paraphrase prompt
+
+    Returns:
+        List of paraphrased feedbacks (including the original as first item)
+    """
+    paraphrases = [original_feedback]  # Always include the original
+
+    # Generate paraphrases one by one in a loop
+    for _ in range(num_paraphrases - 1):  # -1 because we already have the original
+        user_content = paraphrase_prompt_template.format(feedback=original_feedback)
+        messages = [{"role": "user", "content": user_content}]
+
+        try:
+            paraphrase = await call_llm(messages)
+            # Clean up the response (remove any extra text)
+            paraphrase = paraphrase.strip()
+            if paraphrase and paraphrase != original_feedback:
+                paraphrases.append(paraphrase)
+        except Exception as e:
+            print(f"Warning: Failed to generate paraphrase: {e}")
+            # Continue to next iteration even if one fails
+            continue
+
+    return paraphrases
+
 def run_agent_chain_on_batch(
-    batch_items: List[Dict[str, Any]], 
-    agents_config: List[Dict[str, Any]], 
-    agent_prompts: Dict[str, str]
+    batch_items: List[Dict[str, Any]],
+    agents_config: List[Dict[str, Any]],
+    agent_prompts: Dict[str, str],
+    paraphrase_config: Dict[str, Any] = None
 ) -> List[Dict[str, Any]]:
     """
     Exécute la chaîne d'agents complète sur un SEUL batch d'items.
+
+    Args:
+        batch_items: List of items to process
+        agents_config: Configuration for each agent
+        agent_prompts: Dictionary of prompt templates
+        paraphrase_config: Optional config for paraphrasing (num_paraphrases, fields_to_paraphrase, prompt)
     """
     current_batch_data = batch_items
-    
+
     for agent_conf in agents_config:
         agent_name = agent_conf['agent']
         prompt_template = agent_prompts[agent_name]
         input_col = agent_conf['input_col']
         output_col = agent_conf['output_col']
-        
+
         prompts_to_process = []
-        
+
         for item in current_batch_data:
             if agent_name == "adversary":
                 code_col = "code_snippet" # On suppose que l'ancre est toujours le code snippet
                 pos_col = input_col # Le 'input_col' de l'adversaire est le 'positive'
-                
+
                 user_content = prompt_template.format(
-                    code=item.get(code_col, ""), 
+                    code=item.get(code_col, ""),
                     positive=item.get(pos_col, "")
                 )
                 chat_prompt = [{"role": "user", "content": user_content}]
@@ -138,7 +186,7 @@ def run_agent_chain_on_batch(
             return await asyncio.gather(*tasks)
         try:
             outputs = asyncio.run(run_batch())
-   
+
         except Exception as e:
             print(f"Échec du pipeline de génération (batch) pour l'agent {agent_name}")
             print(e)
@@ -149,8 +197,42 @@ def run_agent_chain_on_batch(
         for item, generated in zip(current_batch_data, outputs):
             item[output_col] = generated
             updated_batch.append(item)
-        
+
         current_batch_data = updated_batch
+
+    # Generate paraphrases if configured
+    if paraphrase_config and paraphrase_config.get('enabled', False):
+        num_paraphrases = paraphrase_config.get('num_paraphrases', 1)
+        fields_to_paraphrase = paraphrase_config.get('fields', [])
+        paraphrase_prompt = paraphrase_config.get('prompt_template', '')
+
+        if num_paraphrases > 1 and fields_to_paraphrase and paraphrase_prompt:
+            async def run_paraphrasing():
+                paraphrased_batch = []
+                for item in current_batch_data:
+                    paraphrased_item = item.copy()
+
+                    # Generate paraphrases for each specified field
+                    for field in fields_to_paraphrase:
+                        if field in item and item[field]:
+                            original_feedback = item[field]
+                            paraphrases = await generate_paraphrases(
+                                original_feedback,
+                                num_paraphrases,
+                                paraphrase_prompt
+                            )
+                            # Store as list with plural name
+                            plural_field = field + 's' if not field.endswith('s') else field + '_list'
+                            paraphrased_item[plural_field] = paraphrases
+
+                    paraphrased_batch.append(paraphrased_item)
+                return paraphrased_batch
+
+            try:
+                current_batch_data = asyncio.run(run_paraphrasing())
+            except Exception as e:
+                print(f"Warning: Paraphrase generation failed: {e}")
+
     return current_batch_data
 
 def run_feedback_generation(config: Dict[str, Any]) -> str:
@@ -217,6 +299,20 @@ def run_feedback_generation(config: Dict[str, Any]) -> str:
             print(f"Prompt introuvable : {prompt_path}")
             raise
 
+    # Load paraphrase configuration if enabled
+    paraphrase_config = None
+    if 'paraphrase' in gen_config and gen_config['paraphrase'].get('enabled', False):
+        paraphrase_config = gen_config['paraphrase']
+        prompt_path = paraphrase_config['prompt_file']
+        try:
+            with open(prompt_path, 'r', encoding='utf-8') as f:
+                paraphrase_config['prompt_template'] = f.read()
+            print(f"Paraphrase enabled: {paraphrase_config.get('num_paraphrases', 1)} variations per feedback")
+            print(f"Fields to paraphrase: {paraphrase_config.get('fields', [])}")
+        except FileNotFoundError:
+            print(f"Paraphrase prompt not found: {prompt_path}. Disabling paraphrase.")
+            paraphrase_config = None
+
     # 5. Boucle principale par BATCHS
     effective_agents_config = []
     print("Construction de la chaîne d'agents effective :")
@@ -246,18 +342,19 @@ def run_feedback_generation(config: Dict[str, Any]) -> str:
             effective_agents_config.append(run_conf)
     num_batches = math.ceil(num_to_process / batch_size)
     print("[Stage 2] Generating feedback batches...")
-    for i in tqdm(range(0, num_to_process, batch_size), total=num_batches, desc="[Stage 2] Generating Feedbacks"):
+    for i in tqdm(range(0, num_to_process, batch_size), total=num_batches, desc="[Stage 2] Generating Feedbacks", colour='green'):
         batch_items = items_to_process[i : i + batch_size]
-        
+
         try:
             processed_batch = run_agent_chain_on_batch(
                 batch_items,
                 gen_config['agents'],
-                agent_prompts
+                agent_prompts,
+                paraphrase_config
             )
-            
+
             save_result_batch(final_dataset_path, processed_batch)
-            
+
         except Exception:
             print(f"Échec critique sur un batch (index {i}). Batch ignoré.")
             continue

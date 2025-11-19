@@ -12,7 +12,7 @@ inference:
   # Configuration des serveurs d'inférence (llama.cpp, LM Studio, etc.)
   # LLM pour la génération de texte
   llm:
-    url: "http://localhost:1234/v1"
+    url: "http://localhost:8002/v1"
     model_name: "llama-3.2-3b-instruct"
     timeout: 5.0
     fallback_model: null  # Optional local model fallback
@@ -28,7 +28,7 @@ inference:
 paths:
   source_code_dir: "./codes"
   # Fichier de sortie de la phase 1 (ne sera généré qu'une fois)
-  processed_collection: "./data/processed_collection.parquet"
+  processed_collection: "./data/collections.parquet"
 
 generation:
   # Le "cerveau" de vos agents
@@ -61,6 +61,17 @@ generation:
       prompt_file: "./prompts/agent4_conceptual.txt"
       input_col: "refined_feedback"
       output_col: "conceptual_feedback"
+
+  # Paraphrase generation configuration
+  paraphrase:
+    enabled: true  # Set to true to enable paraphrase generation
+    num_paraphrases: 3  # Number of paraphrases to generate (including original)
+    prompt_file: "./prompts/agent_paraphraser.txt"
+    # Fields to paraphrase (will be stored as lists with 's' suffix)
+    fields:
+      - "refined_feedback"  # Will create "refined_feedbacks" list
+      - "negative_feedback"  # Will create "negative_feedbacks" list
+      - "conceptual_feedback"  # Will create "conceptual_feedbacks" list
 
   # Le fichier de données final, prêt pour l'entraînement
   final_dataset_file: "./data/Exp-002-llama3B_v2.jsonl" # Sera écrasé à chaque run

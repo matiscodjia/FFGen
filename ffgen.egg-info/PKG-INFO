@@ -24,8 +24,7 @@ Requires-Dist: plotly>=6.3.1
 Requires-Dist: openai>=2.7.1
 Requires-Dist: umap>=0.1.1
 Requires-Dist: numpy>=2.3.3
-Requires-Dist: peft>=0.18.0
-Requires-Dist: bitsandbytes>=0.48.2
+Requires-Dist: pyyaml>=6.0.0
 Provides-Extra: viewer
 Requires-Dist: streamlit>=1.30.0; extra == "viewer"
 Requires-Dist: plotly>=6.3.1; extra == "viewer"
@@ -44,6 +43,9 @@ Requires-Dist: black>=23.7.0; extra == "dev"
 Requires-Dist: ruff>=0.0.285; extra == "dev"
 Requires-Dist: mypy>=1.5.0; extra == "dev"
 Requires-Dist: nbformat>=5.10.4; extra == "dev"
+Provides-Extra: quantization
+Requires-Dist: peft>=0.18.0; extra == "quantization"
+Requires-Dist: bitsandbytes>=0.48.2; platform_system != "Darwin" and extra == "quantization"
 Provides-Extra: rag
 Requires-Dist: chromadb>=0.4.0; extra == "rag"
 Provides-Extra: analysis
@@ -51,7 +53,7 @@ Requires-Dist: bertopic>=0.17.3; extra == "analysis"
 Requires-Dist: einops>=0.8.1; extra == "analysis"
 Requires-Dist: pillow>=11.3.0; extra == "analysis"
 Provides-Extra: all
-Requires-Dist: ffgen[analysis,dev,generation,monitoring,rag,viewer]; extra == "all"
+Requires-Dist: ffgen[analysis,dev,generation,monitoring,quantization,rag,viewer]; extra == "all"
 Dynamic: requires-python
 
 # FFGen - Focused Feedback Generation
