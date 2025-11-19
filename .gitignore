@@ -1,5 +1,6 @@
 prompts
 models
+lora_output
 codes
 examples
 __pycache__

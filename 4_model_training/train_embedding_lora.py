@@ -226,20 +226,17 @@ def setup_lora_model(model, lora_r=8, lora_alpha=16, lora_dropout=0.05, target_m
         target_modules = []
         for name, module in model.named_modules():
             # Look for common linear layers in transformers
-            if any(key in name for key in ['q_proj', 'k_proj', 'v_proj', 'o_proj',
-                                            'gate_proj', 'up_proj', 'down_proj',
-                                            'dense', 'query', 'key', 'value',
-                                            'wi', 'wo', 'wi_0', 'wi_1']):
+            if any(key in name for key in ['q_proj', 'k_proj', 'v_proj', 'o_proj']):
                 # Extract module type without the parent path
                 module_type = name.split('.')[-1]
                 if module_type not in target_modules:
                     target_modules.append(module_type)
 
         if not target_modules:
-            print("⚠️  Warning: No target modules auto-detected, using default list")
+            print("Warning: No target modules auto-detected, using default list")
             target_modules = ["q_proj", "v_proj"]
 
-    print(f"🎯 Target modules for LoRA: {target_modules}")
+    print(f"Target modules for LoRA: {target_modules}")
 
     lora_config = LoraConfig(
         r=lora_r,
@@ -254,7 +251,7 @@ def setup_lora_model(model, lora_r=8, lora_alpha=16, lora_dropout=0.05, target_m
 
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total_params = sum(p.numel() for p in model.parameters())
-    print(f"\n🔧 LoRA Configuration:")
+    print(f"\nLoRA Configuration:")
     print(f"  Trainable params: {trainable_params:,} ({100 * trainable_params / total_params:.2f}%)")
     print(f"  Total params: {total_params:,}")
     print(f"  LoRA rank: {lora_r}, alpha: {lora_alpha}, dropout: {lora_dropout}")
@@ -272,10 +269,10 @@ def train_lora(args, custom_save_dir=None):
         device = torch.device('mps')
     else:
         device = torch.device('cpu')
-    print(f"🖥️  Using device: {device}")
+    print(f"Using device: {device}")
 
     # Load data
-    print(f"\n📂 Loading dataset: {args.data}")
+    print(f"\nLoading dataset: {args.data}")
     with open(args.data, 'r') as f:
         examples = [json.loads(line) for line in f]
 
@@ -290,14 +287,14 @@ def train_lora(args, custom_save_dir=None):
         num_negs = len(sample['negative_feedbacks'])
         print(f"   ✓ Multiple negatives detected: {num_negs} per example")
     else:
-        print(f"   ⚠️  Single negative format detected")
+        print(f"Single negative format detected")
 
     # Split
     train_data, val_data = train_test_split(examples, test_size=0.1, random_state=42)
     print(f"   Train: {len(train_data)}, Val: {len(val_data)}")
 
     # Load model & tokenizer
-    print(f"\n🤖 Loading base model: {args.model}")
+    print(f"\nLoading base model: {args.model}")
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
 
     # Load with 8-bit quantization if requested
@@ -327,7 +324,7 @@ def train_lora(args, custom_save_dir=None):
         model.gradient_checkpointing_enable()
 
     # Apply LoRA
-    print("\n🔧 Applying LoRA adaptation...")
+    print("\n Applying LoRA adaptation...")
     model = setup_lora_model(
         model,
         lora_r=args.lora_r,
@@ -378,7 +375,7 @@ def train_lora(args, custom_save_dir=None):
         monitor = TripletTrainingMonitor(window_size=100, margin=args.margin)
 
     print("\n" + "="*80)
-    print("🚀 STARTING LORA TRAINING")
+    print("STARTING LORA TRAINING")
     print("="*80)
 
     best_val_loss = float('inf')
@@ -442,7 +439,7 @@ def train_lora(args, custom_save_dir=None):
         # Validation
         val_metrics = evaluate_multi_negative(model, val_loader, device, args.margin)
 
-        print(f"\n📊 Epoch {epoch+1}/{args.epochs}")
+        print(f"\nEpoch {epoch+1}/{args.epochs}")
         print(f"  Train Loss: {np.mean(epoch_losses):.4f}")
         print(f"  Val Loss: {val_metrics['loss']:.4f}")
         print(f"  Val Violations: {val_metrics['violations_pct']:.1f}%")
