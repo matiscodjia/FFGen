@@ -7,7 +7,7 @@ __pycache__
 .venv
 .DS_Store
 .claude
-data
+heavy_data
 .env
 
 # Secrets and API keys
