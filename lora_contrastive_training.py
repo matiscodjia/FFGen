@@ -54,10 +54,10 @@ class Config:
     lora_target_modules = ["qkv_proj", "o_proj", "down_proj", "up_gate_proj"]
 
     # Training
-    batch_size = 32
+    batch_size = 16
     learning_rate = 2e-4
     weight_decay = 0.01
-    num_epochs = 10
+    num_epochs = 5
     warmup_steps = 500
     gradient_accumulation_steps = 1
 
@@ -238,7 +238,7 @@ class ContrastiveCodeModel(nn.Module):
     ):
         super().__init__()
 
-        self.encoder = AutoModel.from_pretrained(base_model_name)
+        self.encoder = AutoModel.from_pretrained(base_model_name, trust_remote_code=True)
         self.encoder = get_peft_model(self.encoder, lora_config)
         self.temperature = temperature
 
@@ -596,7 +596,7 @@ def main():
     print("="*100)
     print()
 
-    tokenizer = AutoTokenizer.from_pretrained(config.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(config.model_name, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     print(f"✓ Tokenizer loaded: {config.model_name}")
@@ -614,7 +614,7 @@ def main():
     model = ContrastiveCodeModel(
         base_model_name=config.model_name,
         lora_config=lora_config,
-        temperature=config.temperature
+        temperature=config.temperature,
     ).to(config.device)
     print(f"✓ Model created and moved to {config.device}")
     print()

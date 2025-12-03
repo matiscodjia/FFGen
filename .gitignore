@@ -1,6 +1,7 @@
 prompts
 models
 lora_output
+checkpoints
 codes
 examples
 __pycache__
