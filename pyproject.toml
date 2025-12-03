@@ -10,6 +10,8 @@ dependencies = [
     "tqdm>=4.66.0",
     "streamlit>=1.30.0",
     "nbformat>=4.2.0",
+    "datasets>=4.4.1",
+    "peft>=0.18.0",
 ]
 
 [build-system]
