@@ -1,0 +1,29 @@
+# FFGen Configuration - Production Ready
+# ========================================
+
+# Project identification
+project_name: "FFGen"
+run_id: "production-v1"
+
+# Data paths
+data:
+  codes_dir: "./data/codes"
+  dataset_file: "./data/dataset.jsonl"
+
+# Generation settings
+generation:
+  batch_size: 10
+  max_concurrent: 5
+  max_tokens: 1000
+  temperature: 0.7
+
+# Paraphrase settings
+paraphrase:
+  num_variations: 3  # Number of paraphrases per feedback
+  batch_size: 10
+  max_concurrent: 5
+  temperature: 0.8  # Slightly higher for variation
+
+# Prompt files
+prompt_file: "./prompt.txt"
+paraphrase_prompt_file: "./prompt_paraphrase.txt"

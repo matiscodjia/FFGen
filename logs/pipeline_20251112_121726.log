@@ -1,5 +1,0 @@
-2025-11-12 12:17:26,173 - utils.setup_logging - INFO - Logging initialized. Log file: logs/pipeline_20251112_121726.log
-2025-11-12 12:17:26,173 - utils.setup_logging - INFO - Log level: INFO
-2025-11-12 12:17:26,183 - utils.get_device - INFO - Using MPS (Apple Silicon) device
-2025-11-12 12:17:26,200 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: google/embeddinggemma-300m
-2025-11-12 12:17:29,696 - sentence_transformers.SentenceTransformer - INFO - 14 prompts are loaded, with the keys: ['query', 'document', 'BitextMining', 'Clustering', 'Classification', 'InstructionRetrieval', 'MultilabelClassification', 'PairClassification', 'Reranking', 'Retrieval', 'Retrieval-query', 'Retrieval-document', 'STS', 'Summarization']

@@ -1,4 +1,0 @@
-2025-11-19 11:11:19,341 - utils.setup_logging - INFO - Logging initialized. Log file: logs/pipeline_20251119_111119.log
-2025-11-19 11:11:19,341 - utils.setup_logging - INFO - Log level: INFO
-2025-11-19 11:11:19,352 - utils.get_device - INFO - Using MPS (Apple Silicon) device
-2025-11-19 11:11:19,413 - utils.load_progress - INFO - Loaded 16 previously processed items from ./data/Exp-002-llama3B_v2.jsonl
