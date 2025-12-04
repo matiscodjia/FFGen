@@ -479,8 +479,24 @@ class ContrastiveTrainer:
             print(f"  Val Var (code/feedback): {val_metrics['code_var']:.4f}/{val_metrics['feedback_var']:.4f}")
 
             # FIXED: Warn about mode collapse
-            if train_metrics['code_var'] < 0.01 or train_metrics['feedback_var'] < 0.01:
-                print(f"  ⚠️  WARNING: Possible mode collapse detected (variance < 0.01)!")
+            # Store initial variance as baseline
+            if epoch == 1:
+                self.initial_code_var = train_metrics['code_var']
+                self.initial_feedback_var = train_metrics['feedback_var']
+
+            # Check for drastic variance decrease (sign of collapse)
+            if epoch > 1:
+                code_var_ratio = train_metrics['code_var'] / (self.initial_code_var + 1e-9)
+                feedback_var_ratio = train_metrics['feedback_var'] / (self.initial_feedback_var + 1e-9)
+
+                if code_var_ratio < 0.1 or feedback_var_ratio < 0.1:
+                    print(f"  ⚠️  WARNING: Mode collapse detected!")
+                    print(f"     Variance dropped to {code_var_ratio:.1%} of initial (code) / {feedback_var_ratio:.1%} (feedback)")
+
+            # Also check margin collapse (more reliable signal)
+            if train_metrics['margin'] < 0.5:
+                print(f"  ⚠️  WARNING: Margin collapse! (margin < 0.5)")
+                print(f"     Model is not discriminating between positives and negatives")
 
             self.history.append({
                 'epoch': epoch,
