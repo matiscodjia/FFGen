@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from datasets import load_dataset, Dataset
-from transformers import AutoTokenizer, AutoModel, Trainer
+from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments
 from peft import get_peft_model
 import torch.nn.functional as F
 
@@ -76,119 +76,143 @@ class BiEncoder(nn.Module):
 from transformers import Trainer
 import torch.nn.functional as F
 
+from transformers import Trainer
+import torch.nn.functional as F
+
 class ContrastiveTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        # 1. Forward Pass
-        # Le "**inputs" déballe le dictionnaire du collator directement dans les arguments du forward
         code_emb, feedback_emb = model(**inputs)
-        
-        # 2. Calcul de la Matrice de Similarité
-        # On multiplie Code (NxD) par Feedback Transposé (DxN) -> Matrice (NxN)
-        # On divise par la température (ex: 0.07) pour "picoter" la distribution
         temperature = model.temperature
         similarity_matrix = torch.matmul(code_emb, feedback_emb.T) / temperature
         
-        # 3. Création des Labels (La Vérité est sur la diagonale)
-        # Si batch_size = 4, labels = [0, 1, 2, 3]
         batch_size = code_emb.size(0)
         labels = torch.arange(batch_size).to(code_emb.device)
         
-        # 4. Calcul de la Loss (Symétrique pour plus de robustesse)
-        # Code -> Feedback : Est-ce que le Code A retrouve le Feedback A ?
+        # 2. Loss (Comme avant)
         loss_c2f = F.cross_entropy(similarity_matrix, labels)
-        
-        # Feedback -> Code : Est-ce que le Feedback A retrouve le Code A ?
         loss_f2c = F.cross_entropy(similarity_matrix.T, labels)
-        
         loss = (loss_c2f + loss_f2c) / 2
         
-        # 5. (Optionnel mais recommandé) Nos Métriques Custom
-        # On veut savoir si le modèle devine juste, pas juste la valeur de la loss.
+        # 3. METRIQUES AVANCÉES (MRR, Recall)
+        # On le fait dans un bloc 'no_grad' pour ne pas exploser la mémoire
         with torch.no_grad():
-            # Quelle colonne a le score le plus haut pour chaque ligne ?
-            predicted_indices = torch.argmax(similarity_matrix, dim=1)
-            accuracy = (predicted_indices == labels).float().mean()
-            
-            # On loggue directement dans le système de tracking de HF
-            self.log({"batch_accuracy": accuracy.item()})
+            self.log_ranking_metrics(similarity_matrix, labels)
 
-        # Le Trainer attend (loss, outputs) si return_outputs est True
         return (loss, (code_emb, feedback_emb)) if return_outputs else loss
-    
+
+    def log_ranking_metrics(self, similarity_matrix, labels):
+        sorted_indices = torch.argsort(similarity_matrix, dim=1, descending=True)
+        hits = (sorted_indices == labels.view(-1, 1))
+        
+        # C. On récupère le rang (l'index où hits est True)
+        # nonzero() renvoie les coordonnées [ligne, colonne]. La colonne EST le rang (0-indexed)
+        # On ajoute +1 car le rang commence humainement à 1
+        ranks = hits.nonzero(as_tuple=True)[1].float() + 1
+        
+        # D. Calcul des Scores
+        
+        # MRR : Moyenne des inverses des rangs (1/1, 1/2, 1/3...)
+        mrr = (1 / ranks).mean().item()
+        
+        # Recall@1 : Combien de rangs valent 1 ? (C'est ton accuracy)
+        r1 = (ranks <= 1).float().mean().item()
+        
+        # Recall@5 : Combien de rangs sont <= 5 ?
+        r5 = (ranks <= 5).float().mean().item()
+        
+        # Recall@10 : Combien de rangs sont <= 10 ?
+        r10 = (ranks <= 10).float().mean().item()
+        
+        self.log({
+            "mrr": mrr,
+            "recall_at_1": r1,
+            "recall_at_5": r5,
+            "recall_at_10": r10
+        })
 
 
 def main():
     from transformers import TrainingArguments, AutoTokenizer
-    from peft import LoraConfig, TaskType
+from peft import LoraConfig, TaskType
 
-    # ==========================================
-    # 1. CONFIGURATION RAPIDE
-    # ==========================================
-    model_name = "Salesforce/SFR-Embedding-Code-400M_R"
+# ==========================================
+# 1. CONFIGURATION RAPIDE & TOKENIZER
+# ==========================================
+model_name = "Salesforce/SFR-Embedding-Code-400M_R"
 
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
 
+# ==========================================
+# 2. DATASETS & COLLATOR
+# ==========================================
 
-    # On charge le tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+dataset = CFDataset(data_dict["train"].to_list())
+val_dataset = CFDataset(data_dict["validation"].to_list())
+collator = CFCollator(tokenizer, max_code_length=512, max_feedback_length=128)
 
-    # On instancie nos classes
-    dataset = CFDataset(data_dict["train"].to_list())
-    val_dataset = CFDataset(data_dict["validation"].to_list())
-    collator = CFCollator(tokenizer, max_code_length=512, max_feedback_length=128)
+# ==========================================
+# 3. PRÉPARATION DU MODÈLE (OPTIMISÉ)
+# ==========================================
+lora_config = LoraConfig(
+    r=32,                
+    lora_alpha=64,      
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"], 
+    lora_dropout=0.05,
+    bias="none",
+    task_type=TaskType.FEATURE_EXTRACTION
+)
 
-    # ==========================================
-    # 3. PRÉPARATION DU MODÈLE
-    # ==========================================
-    # Config LoRA (Allège le modèle pour l'entraînement)
-    lora_config = LoraConfig(
-        r=128,                 # Rang de la matrice (plus petit = moins de paramètres)
-        lora_alpha=16,       # Facteur d'échelle
-        target_modules=["q_proj", "v_proj", "k_proj", "o_proj"], # Adapte selon le modèle !
-        lora_dropout=0.05,
-        bias="none",
-        task_type=TaskType.FEATURE_EXTRACTION
-    )
+model = BiEncoder(
+    base_model_name=model_name,
+    lora_config=lora_config,
+    temperature=0.07
+)
 
-    # Attention : pour SFR-Embedding, les target_modules peuvent varier.
-    # Si tu as une erreur, essaie juste ["query", "value"] ou regarde le nom des couches.
+# ==========================================
+# 4. ARGUMENTS D'ENTRAÎNEMENT (OPTIMISÉ)
+# ==========================================
+training_args = TrainingArguments(
+    output_dir="./test_trainer",
+    num_train_epochs=10,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    learning_rate=1e-4,
+    
+    # --- Visibilité (TensorBoard) ---
+    logging_dir='./logs',
+    report_to="tensorboard",
+    logging_strategy="steps",
+    logging_steps=50,    
 
-    model = BiEncoder(
-        base_model_name=model_name,
-        lora_config=lora_config,
-        temperature=0.07
-    )
+    eval_strategy="steps",
+    eval_steps=200,     
+    
+    save_strategy="steps",
+    save_steps=200,     
+    save_total_limit=2,  
+    
+    load_best_model_at_end=True,      
+    metric_for_best_model="eval_mrr", 
+    greater_is_better=True,           
+    
+    remove_unused_columns=False
+)
 
-    # ==========================================
-    # 4. LANCEMENT DE L'ENTRAÎNEMENT
-    # ==========================================
-    training_args = TrainingArguments(
-        output_dir="./test_trainer",
-        num_train_epochs=10,              # Juste 2 époques pour tester
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,   # Petit batch pour éviter l'OOM (Out of Memory)
-        learning_rate=1e-4,
-        eval_strategy="epoch",
-        save_strategy="epoch",
-        logging_steps=1000,
-        eval_steps=1000,  
-        logging_dir='./logs',              
-        remove_unused_columns=False,     
-        report_to="tensorboard",                        
-    )
+trainer = ContrastiveTrainer(
+    model=model,
+    args=training_args,
+    train_dataset=dataset,
+    eval_dataset=val_dataset,
+    data_collator=collator
+)
 
-    trainer = ContrastiveTrainer(
-        model=model,
-        args=training_args,
-        train_dataset=dataset,
-        eval_dataset=val_dataset,
-        data_collator=collator
-    )
+print("\nDémarrage de l'entraînement optimisé...")
+trainer.train()
 
-    print("\nDémarrage de l'entraînement test...")
-    trainer.train()
-    print("✅ Entraînement terminé avec succès !")
+trainer.save_model("./test_trainer/best_model_final")
+print("Entraînement terminé. Meilleur modèle (basé sur MRR) sauvegardé.")
 
 
 if __name__ == "__main__":
