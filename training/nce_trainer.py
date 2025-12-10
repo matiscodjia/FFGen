@@ -200,24 +200,22 @@ model.enable_input_require_grads()
 training_args = TrainingArguments(
     output_dir="./test_trainer",
     num_train_epochs=10,
-    per_device_train_batch_size=128,
-    per_device_eval_batch_size=128,
+    per_device_train_batch_size=512,
+    per_device_eval_batch_size=512,
     learning_rate=2e-4,
     bf16=True,      
     fp16=False,
     gradient_checkpointing=True,
     # --- Visibilité (TensorBoard) ---
-    logging_dir='./logs',
-    report_to="tensorboard",
     logging_strategy="steps",
-    logging_steps=50,    
+    logging_steps=10,    
 
     eval_strategy="steps",
-    eval_steps=20,     
+    eval_steps=10,     
     
     save_strategy="steps",
     save_steps=200,     
-    save_total_limit=2,  
+    save_total_limit=1,  
     
     load_best_model_at_end=True,      
     metric_for_best_model="eval_mrr", 
@@ -240,6 +238,69 @@ trainer.train()
 
 trainer.save_model("./test_trainer/best_model_final")
 print("Entraînement terminé. Meilleur modèle (basé sur MRR) sauvegardé.")
+
+import matplotlib.pyplot as plt
+
+# 1. Extraction des logs de l'historique du Trainer
+history = trainer.state.log_history
+
+# On filtre pour séparer les logs d'entraînement (loss) et d'évaluation (mrr, recall)
+train_steps = []
+train_loss = []
+
+eval_steps = []
+eval_loss = []
+eval_mrr = []
+eval_recall_10 = []
+
+for log in history:
+    # Logs d'entraînement (contiennent 'loss' mais pas 'eval_loss')
+    if "loss" in log and "eval_loss" not in log:
+        train_steps.append(log["step"])
+        train_loss.append(log["loss"])
+    
+    # Logs d'évaluation (contiennent 'eval_loss')
+    if "eval_loss" in log:
+        eval_steps.append(log["step"])
+        eval_loss.append(log["eval_loss"])
+        # On vérifie que la clé existe (au cas où le premier log n'aurait pas tout)
+        if "eval_mrr" in log:
+            eval_mrr.append(log["eval_mrr"])
+        if "eval_recall_at_10" in log:
+            eval_recall_10.append(log["eval_recall_at_10"])
+
+# 2. Création du graphique avec Matplotlib
+plt.figure(figsize=(15, 5))
+
+# Sous-graphe 1 : Loss (Train vs Eval)
+plt.subplot(1, 3, 1)
+plt.plot(train_steps, train_loss, label="Training Loss", alpha=0.6)
+plt.plot(eval_steps, eval_loss, label="Validation Loss", linewidth=2)
+plt.xlabel("Steps")
+plt.ylabel("Loss")
+plt.legend()
+plt.title("Evolution de la Loss")
+
+# Sous-graphe 2 : MRR
+plt.subplot(1, 3, 2)
+plt.plot(eval_steps, eval_mrr, color='orange', marker='o')
+plt.xlabel("Steps")
+plt.ylabel("MRR")
+plt.title("Evolution du MRR (Qualité)")
+plt.grid(True, linestyle='--', alpha=0.5)
+
+# Sous-graphe 3 : Recall@10
+plt.subplot(1, 3, 3)
+plt.plot(eval_steps, eval_recall_10, color='green', marker='o')
+plt.xlabel("Steps")
+plt.ylabel("Recall@10")
+plt.title("Evolution du Recall@10")
+plt.grid(True, linestyle='--', alpha=0.5)
+
+# 3. Sauvegarde automatique de l'image
+plt.tight_layout()
+plt.savefig("resultats_entrainement.png")
+print("\n📊 Graphique sauvegardé sous : resultats_entrainement.png")
 
 # ==========================================
 # 5. ÉVALUATION SUR LE JEU DE TEST (FINAL)
