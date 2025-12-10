@@ -77,7 +77,7 @@ class BiEncoder(nn.Module):
         embeddings = F.normalize(embeddings, p=2, dim=1)
         return embeddings
         
-    def forward(self, code_input_id, code_attention_mask, feedback_input_id, feedback_attention_mask):
+    def forward(self, code_input_id, code_attention_mask, feedback_input_id, feedback_attention_mask, labels=None):
         code_embeddings = self.encode(code_input_id, code_attention_mask)
         
         feedback_embeddings = self.encode(feedback_input_id, feedback_attention_mask)
@@ -110,40 +110,48 @@ class ContrastiveTrainer(Trainer):
         
         # ON A SUPPRIMÉ TOUTE LA PARTIE self.log(...) ICI
         
-        return (loss, (code_emb, feedback_emb)) if return_outputs else loss
+        if return_outputs:
+            # On colle : [Batch, 1024] + [Batch, 1024] -> [Batch, 2048]
+            outputs = torch.cat((code_emb, feedback_emb), dim=1)
+            return (loss, outputs)
+            
+        return loss
 import numpy as np
 
 def compute_metrics(eval_pred):
-    # Le Trainer te donne les predictions sous forme de tuple Numpy
-    # predictions = (code_embeddings, feedback_embeddings)
-    code_emb, feedback_emb = eval_pred.predictions
+    # On reçoit maintenant un seul tableau numpy géant
+    predictions = eval_pred.predictions
     
-    # 1. Calcul de la matrice de similarité GLOBALE (Tout le set de validation)
-    # Taille : (N_val, N_val) -> ex: (50, 50)
+    # Sécurité : si c'est un tuple, on prend le premier élément (au cas où)
+    if isinstance(predictions, tuple):
+        predictions = predictions[0]
+
+    # predictions est de forme (N_samples, 2 * Embedding_Dim)
+    # Ex: (1180, 2048)
+    
+    # On coupe en deux au milieu de la dimension 1
+    mid_point = predictions.shape[1] // 2
+    
+    code_emb = predictions[:, :mid_point]      # La première moitié
+    feedback_emb = predictions[:, mid_point:]  # La seconde moitié
+
+    # 1. Calcul de la matrice (Doit donner N_samples x N_samples, ex: 1180x1180)
     similarity_matrix = np.matmul(code_emb, feedback_emb.T)
     
-    # 2. Les labels sont toujours la diagonale
+    # 2. Labels (Diagonale)
     labels = np.arange(len(code_emb))
     
-    # 3. Calcul des métriques (Version Numpy)
-    # On trie les scores du plus grand au plus petit (d'où le -)
+    # 3. Calculs
     sorted_indices = np.argsort(-similarity_matrix, axis=1)
-    
-    # Où est la bonne réponse ?
     hits = (sorted_indices == labels[:, None])
-    
-    # On récupère le rang (1-based)
     ranks = np.argwhere(hits)[:, 1] + 1
     
-    # Calculs statistiques
     return {
         "mrr": np.mean(1 / ranks),
         "recall_at_1": np.mean(ranks <= 1),
         "recall_at_5": np.mean(ranks <= 5),
         "recall_at_10": np.mean(ranks <= 10)
     }
-
-
 def main():
     from transformers import TrainingArguments, AutoTokenizer
 from peft import LoraConfig, TaskType
@@ -189,8 +197,8 @@ model.enable_input_require_grads()
 training_args = TrainingArguments(
     output_dir="./test_trainer",
     num_train_epochs=10,
-    per_device_train_batch_size=64,
-    per_device_eval_batch_size=64,
+    per_device_train_batch_size=128,
+    per_device_eval_batch_size=128,
     learning_rate=2e-4,
     bf16=True,      
     fp16=False,
@@ -202,7 +210,7 @@ training_args = TrainingArguments(
     logging_steps=50,    
 
     eval_strategy="steps",
-    eval_steps=200,     
+    eval_steps=20,     
     
     save_strategy="steps",
     save_steps=200,     
