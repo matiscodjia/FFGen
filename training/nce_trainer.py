@@ -81,54 +81,54 @@ import torch.nn.functional as F
 
 class ContrastiveTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        # 1. Forward Pass
         code_emb, feedback_emb = model(**inputs)
-        temperature = model.temperature
-        similarity_matrix = torch.matmul(code_emb, feedback_emb.T) / temperature
         
+        # 2. Matrice de Similarité & Labels
+        # Note : On garde le calcul ici car on en a besoin pour la Loss
+        similarity_matrix = torch.matmul(code_emb, feedback_emb.T) / model.temperature
         batch_size = code_emb.size(0)
         labels = torch.arange(batch_size).to(code_emb.device)
         
-        # 2. Loss (Comme avant)
+        # 3. Calcul de la Loss
         loss_c2f = F.cross_entropy(similarity_matrix, labels)
         loss_f2c = F.cross_entropy(similarity_matrix.T, labels)
         loss = (loss_c2f + loss_f2c) / 2
         
-        # 3. METRIQUES AVANCÉES (MRR, Recall)
-        # On le fait dans un bloc 'no_grad' pour ne pas exploser la mémoire
-        with torch.no_grad():
-            self.log_ranking_metrics(similarity_matrix, labels)
-
+        # ON A SUPPRIMÉ TOUTE LA PARTIE self.log(...) ICI
+        
         return (loss, (code_emb, feedback_emb)) if return_outputs else loss
+import numpy as np
 
-    def log_ranking_metrics(self, similarity_matrix, labels):
-        sorted_indices = torch.argsort(similarity_matrix, dim=1, descending=True)
-        hits = (sorted_indices == labels.view(-1, 1))
-        
-        # C. On récupère le rang (l'index où hits est True)
-        # nonzero() renvoie les coordonnées [ligne, colonne]. La colonne EST le rang (0-indexed)
-        # On ajoute +1 car le rang commence humainement à 1
-        ranks = hits.nonzero(as_tuple=True)[1].float() + 1
-        
-        # D. Calcul des Scores
-        
-        # MRR : Moyenne des inverses des rangs (1/1, 1/2, 1/3...)
-        mrr = (1 / ranks).mean().item()
-        
-        # Recall@1 : Combien de rangs valent 1 ? (C'est ton accuracy)
-        r1 = (ranks <= 1).float().mean().item()
-        
-        # Recall@5 : Combien de rangs sont <= 5 ?
-        r5 = (ranks <= 5).float().mean().item()
-        
-        # Recall@10 : Combien de rangs sont <= 10 ?
-        r10 = (ranks <= 10).float().mean().item()
-        
-        self.log({
-            "mrr": mrr,
-            "recall_at_1": r1,
-            "recall_at_5": r5,
-            "recall_at_10": r10
-        })
+def compute_metrics(eval_pred):
+    # Le Trainer te donne les predictions sous forme de tuple Numpy
+    # predictions = (code_embeddings, feedback_embeddings)
+    code_emb, feedback_emb = eval_pred.predictions
+    
+    # 1. Calcul de la matrice de similarité GLOBALE (Tout le set de validation)
+    # Taille : (N_val, N_val) -> ex: (50, 50)
+    similarity_matrix = np.matmul(code_emb, feedback_emb.T)
+    
+    # 2. Les labels sont toujours la diagonale
+    labels = np.arange(len(code_emb))
+    
+    # 3. Calcul des métriques (Version Numpy)
+    # On trie les scores du plus grand au plus petit (d'où le -)
+    sorted_indices = np.argsort(-similarity_matrix, axis=1)
+    
+    # Où est la bonne réponse ?
+    hits = (sorted_indices == labels[:, None])
+    
+    # On récupère le rang (1-based)
+    ranks = np.argwhere(hits)[:, 1] + 1
+    
+    # Calculs statistiques
+    return {
+        "mrr": np.mean(1 / ranks),
+        "recall_at_1": np.mean(ranks <= 1),
+        "recall_at_5": np.mean(ranks <= 5),
+        "recall_at_10": np.mean(ranks <= 10)
+    }
 
 
 def main():
@@ -176,10 +176,11 @@ model = BiEncoder(
 training_args = TrainingArguments(
     output_dir="./test_trainer",
     num_train_epochs=10,
-    per_device_train_batch_size=16,
-    per_device_eval_batch_size=16,
-    learning_rate=1e-4,
-    
+    per_device_train_batch_size=128,
+    per_device_eval_batch_size=128,
+    learning_rate=2e-4,
+    bf16=True,      
+    fp16=False,
     # --- Visibilité (TensorBoard) ---
     logging_dir='./logs',
     report_to="tensorboard",
@@ -196,7 +197,7 @@ training_args = TrainingArguments(
     load_best_model_at_end=True,      
     metric_for_best_model="eval_mrr", 
     greater_is_better=True,           
-    
+    dataloader_num_workers=8,
     remove_unused_columns=False
 )
 
@@ -205,7 +206,8 @@ trainer = ContrastiveTrainer(
     args=training_args,
     train_dataset=dataset,
     eval_dataset=val_dataset,
-    data_collator=collator
+    data_collator=collator,
+    compute_metrics=compute_metrics
 )
 
 print("\nDémarrage de l'entraînement optimisé...")
@@ -213,6 +215,40 @@ trainer.train()
 
 trainer.save_model("./test_trainer/best_model_final")
 print("Entraînement terminé. Meilleur modèle (basé sur MRR) sauvegardé.")
+
+# ==========================================
+# 5. ÉVALUATION SUR LE JEU DE TEST (FINAL)
+# ==========================================
+
+# 1. On charge le dataset de test (jamais vu par le modèle)
+# Vérifie que ton data_dict contient bien une clé "test"
+if "test" in data_dict:
+    test_dataset = CFDataset(data_dict["test"].to_list())
+else:
+    # Fallback si pas de split test : on utilise une partie de la validation (déconseillé en prod)
+    print("⚠️ Pas de split 'test' trouvé, utilisation de la validation comme test.")
+    test_dataset = val_dataset
+
+print("\n" + "="*40)
+print("🏁 LANCEMENT DU TEST FINAL")
+print("="*40)
+
+# 2. On lance la prédiction
+# .predict() est différent de .evaluate() : il ne met pas à jour les gradients
+# et retourne les prédictions brutes + les métriques
+test_output = trainer.predict(test_dataset)
+
+# 3. Affichage des résultats
+metrics = test_output.metrics
+
+# Note : Hugging Face ajoute automatiquement le préfixe "test_" devant tes noms de métriques
+print("\nRÉSULTATS OFFICIELS SUR LE TEST SET :")
+print(f"🏆 MRR Global      : {metrics.get('test_mrr', 0):.4f}")
+print(f"🎯 Recall@1 (Acc)  : {metrics.get('test_recall_at_1', 0):.2%}")
+print(f"🔎 Recall@5        : {metrics.get('test_recall_at_5', 0):.2%}")
+print(f"🌐 Recall@10       : {metrics.get('test_recall_at_10', 0):.2%}")
+print(f"📉 Loss Finale     : {metrics.get('test_loss', 0):.4f}")
+print("="*40)
 
 
 if __name__ == "__main__":
