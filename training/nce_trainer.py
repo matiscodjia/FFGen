@@ -5,7 +5,10 @@ from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments
 from peft import get_peft_model
 import torch.nn.functional as F
 
-data_dict = load_dataset('matis35/RAFT')
+# Use cleaned dataset: matis35/RAFT_CLEAN_V1 (40% semantic dedup, threshold 0.40)
+# Original: matis35/RAFT (11,806 entries with duplicates)
+# Cleaned: matis35/RAFT_CLEAN_V1 (7,024 entries, 73.3% unique patterns)
+data_dict = load_dataset('matis35/RAFT_CLEAN_V1')
 model = AutoModel.from_pretrained("Salesforce/SFR-Embedding-Code-400M_R", trust_remote_code=True)
 tokenizer = AutoTokenizer.from_pretrained("Salesforce/SFR-Embedding-Code-400M_R", trust_remote_code=True)
 
