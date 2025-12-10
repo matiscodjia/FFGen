@@ -200,8 +200,8 @@ model.enable_input_require_grads()
 training_args = TrainingArguments(
     output_dir="./test_trainer",
     num_train_epochs=10,
-    per_device_train_batch_size=512,
-    per_device_eval_batch_size=512,
+    per_device_train_batch_size=256,
+    per_device_eval_batch_size=256,
     learning_rate=2e-4,
     bf16=True,      
     fp16=False,
