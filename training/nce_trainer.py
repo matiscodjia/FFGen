@@ -49,6 +49,18 @@ class BiEncoder(nn.Module):
         self.temperature = temperature
         print(f"\nModel architecture:")
         self.encoder.print_trainable_parameters()
+    def enable_input_require_grads(self):
+        """
+        Active les gradients sur les embeddings d'entrée.
+        Crucial pour faire fonctionner LoRA avec Gradient Checkpointing.
+        """
+        self.encoder.enable_input_require_grads()    
+    def gradient_checkpointing_enable(self, gradient_checkpointing_kwargs=None):
+        """
+        Le Trainer appelle cette méthode pour activer l'économie de mémoire.
+        On passe simplement l'ordre à l'encodeur interne (le modèle HF/PEFT).
+        """
+        self.encoder.gradient_checkpointing_enable(gradient_checkpointing_kwargs=gradient_checkpointing_kwargs)    
     
     def mean_pooling(self, token_embeddings, attention_mask):
         input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
@@ -169,18 +181,19 @@ model = BiEncoder(
     lora_config=lora_config,
     temperature=0.07
 )
-
+model.enable_input_require_grads()
 # ==========================================
 # 4. ARGUMENTS D'ENTRAÎNEMENT (OPTIMISÉ)
 # ==========================================
 training_args = TrainingArguments(
     output_dir="./test_trainer",
     num_train_epochs=10,
-    per_device_train_batch_size=128,
-    per_device_eval_batch_size=128,
+    per_device_train_batch_size=64,
+    per_device_eval_batch_size=64,
     learning_rate=2e-4,
     bf16=True,      
     fp16=False,
+    gradient_checkpointing=True,
     # --- Visibilité (TensorBoard) ---
     logging_dir='./logs',
     report_to="tensorboard",
