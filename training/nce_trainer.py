@@ -32,11 +32,12 @@ class CFCollator:
         feedbacks = [item["feedback"] for item in batch]
         codes_encoding = self.tokenizer(codes, truncation=True, padding=True, max_length=self.max_code_length, return_tensors="pt")
         feedbacks_encoding = self.tokenizer(feedbacks, truncation=True, padding=True, max_length=self.max_feedback_length, return_tensors="pt")
-
+        dummy_labels = torch.arange(len(codes))
         return {"code_input_id" : codes_encoding["input_ids"],
                 "feedback_input_id" : feedbacks_encoding["input_ids"],
                 "code_attention_mask" : codes_encoding["attention_mask"],
-                "feedback_attention_mask" : feedbacks_encoding["attention_mask"] }
+                "feedback_attention_mask" : feedbacks_encoding["attention_mask"],
+                 "labels": dummy_labels}
 
 
 
