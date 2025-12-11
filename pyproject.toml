@@ -12,6 +12,14 @@ dependencies = [
     "nbformat>=4.2.0",
     "datasets>=4.4.1",
     "peft>=0.18.0",
+    "chroma>=0.2.0",
+    "tensorboard>=2.20.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "torch>=2.0.0",
+    "transformers>=4.36.0",
 ]
 
 [build-system]
