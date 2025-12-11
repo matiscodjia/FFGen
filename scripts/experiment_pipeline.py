@@ -20,6 +20,7 @@ from pathlib import Path
 from dataclasses import dataclass, asdict
 from typing import List, Dict, Any
 import shutil
+from tqdm import tqdm
 
 @dataclass
 class ExperimentConfig:
@@ -134,6 +135,12 @@ class IndustrialPipeline:
                     hub_model_id = f"{model_config['hub_prefix']}-{dataset_key}-bs{batch_size}"
                     output_dir = str(self.runs_dir / exp_id)
 
+                    # Linear Scaling Rule: LR scales with batch size
+                    # Base LR = 2e-4 for batch_size = 32
+                    base_lr = 2e-4
+                    base_batch_size = 32
+                    learning_rate = base_lr * (batch_size / base_batch_size)
+
                     config = ExperimentConfig(
                         experiment_id=exp_id,
                         base_model=model_config["model_name"],
@@ -142,6 +149,7 @@ class IndustrialPipeline:
                         dataset_path=dataset_config["path"],
                         output_dir=output_dir,
                         hub_model_id=hub_model_id,
+                        learning_rate=learning_rate,
                     )
 
                     experiments.append(config)
@@ -304,22 +312,35 @@ class IndustrialPipeline:
         Args:
             continue_on_failure: If True, continue running even if some experiments fail
         """
-        print(f"\n Starting Industrial Training Pipeline")
-        print(f" Total experiments to run: {len(self.experiments)}")
+        print(f"\n🚀 Starting Industrial Training Pipeline")
+        print(f"📊 Total experiments to run: {len(self.experiments)}\n")
 
-        for i, config in enumerate(self.experiments, 1):
-            print(f"\nProgress: {i}/{len(self.experiments)}")
+        # Create a clean progress bar
+        pbar = tqdm(
+            self.experiments,
+            desc="Pipeline Progress",
+            unit="exp",
+            colour="green",
+            bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'
+        )
+
+        for config in pbar:
+            # Update description with current experiment
+            pbar.set_description(f"Running: {config.experiment_id}")
 
             success = self.run_single_experiment(config)
 
             if not success and not continue_on_failure:
-                print(f"\nStopping pipeline due to failure")
+                pbar.close()
+                print(f"\n❌ Stopping pipeline due to failure")
                 break
 
             # Brief pause between experiments
-            if i < len(self.experiments):
-                print(f"\n Pausing 10s before next experiment...")
+            if config != self.experiments[-1]:
+                pbar.set_description("Pausing between experiments")
                 time.sleep(10)
+
+        pbar.close()
 
         # Final summary
         self.print_summary()
