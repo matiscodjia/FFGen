@@ -354,21 +354,45 @@ def train_experiment(config: Dict[str, Any], output_dir: str, log_file: str = No
     logger.info(f"Loading dataset from: {config['dataset_path']}")
 
     dataset_path = config['dataset_path']
-    if dataset_path.endswith('.jsonl'):
+
+    # Check if it's a Hugging Face Hub dataset (format: username/dataset-name)
+    if '/' in dataset_path and not dataset_path.startswith('.') and not dataset_path.startswith('/'):
+        # Load from Hugging Face Hub
+        logger.info(f"Loading dataset from Hugging Face Hub: {dataset_path}")
+        dataset_dict = load_dataset(dataset_path)
+
+        # Handle DatasetDict - get train, validation, and test splits if available
+        if isinstance(dataset_dict, dict):
+            train_data = dataset_dict.get('train')
+            val_data = dataset_dict.get('validation') or dataset_dict.get('val')
+            test_data = dataset_dict.get('test')
+
+            if train_data is None:
+                raise ValueError(f"No 'train' split found in dataset {dataset_path}. Available splits: {list(dataset_dict.keys())}")
+        else:
+            # Single dataset, use as train
+            train_data = dataset_dict
+            val_data = None
+            test_data = None
+
+    elif dataset_path.endswith('.jsonl'):
         # Single file - load as train only
         dataset_dict = load_dataset('json', data_files=dataset_path)
         train_data = dataset_dict['train']
         val_data = None
+        test_data = None
     else:
         # Directory with splits
         try:
             dataset_dict = load_dataset('json', data_dir=dataset_path)
             train_data = dataset_dict.get('train')
             val_data = dataset_dict.get('validation')
+            test_data = dataset_dict.get('test')
         except:
             # Fallback: try loading individual files
             train_file = Path(dataset_path) / "train.jsonl"
             val_file = Path(dataset_path) / "validation.jsonl"
+            test_file = Path(dataset_path) / "test.jsonl"
 
             if train_file.exists():
                 train_data = load_dataset('json', data_files=str(train_file), split='train')
@@ -381,9 +405,17 @@ def train_experiment(config: Dict[str, Any], output_dir: str, log_file: str = No
                 logger.warning("No validation data found")
                 val_data = None
 
+            if test_file.exists():
+                test_data = load_dataset('json', data_files=str(test_file), split='train')
+            else:
+                logger.warning("No test data found")
+                test_data = None
+
     logger.info(f"Train dataset loaded: {len(train_data)} examples")
     if val_data:
         logger.info(f"Validation dataset loaded: {len(val_data)} examples")
+    if test_data:
+        logger.info(f"Test dataset loaded: {len(test_data)} examples")
 
     # Convert to list format
     train_list = [
@@ -401,6 +433,14 @@ def train_experiment(config: Dict[str, Any], output_dir: str, log_file: str = No
             for item in val_data
         ]
         val_dataset = CodeFeedbackDataset(val_list)
+
+    test_dataset = None
+    if test_data:
+        test_list = [
+            {"code": item["code"], "feedback": item["feedback"]}
+            for item in test_data
+        ]
+        test_dataset = CodeFeedbackDataset(test_list)
 
     # Load tokenizer
     logger.info(f"Loading tokenizer for: {config['base_model']}")
@@ -497,6 +537,30 @@ def train_experiment(config: Dict[str, Any], output_dir: str, log_file: str = No
     # Finalize metrics
     metrics_logger.finalize()
 
+    # Evaluate on test set if available
+    test_metrics = None
+    if test_dataset:
+        logger.info("="*80)
+        logger.info("EVALUATING ON TEST SET")
+        logger.info("="*80)
+
+        test_output = trainer.predict(test_dataset)
+        test_metrics = test_output.metrics
+
+        logger.info("TEST SET RESULTS:")
+        logger.info(f"  MRR:        {test_metrics.get('test_mrr', 0):.4f}")
+        logger.info(f"  Recall@1:   {test_metrics.get('test_recall_at_1', 0):.4f}")
+        logger.info(f"  Recall@5:   {test_metrics.get('test_recall_at_5', 0):.4f}")
+        logger.info(f"  Recall@10:  {test_metrics.get('test_recall_at_10', 0):.4f}")
+        logger.info(f"  Loss:       {test_metrics.get('test_loss', 0):.4f}")
+        logger.info("="*80)
+
+        # Save test metrics to file
+        test_metrics_file = Path(output_dir) / "test_metrics.json"
+        with open(test_metrics_file, 'w') as f:
+            json.dump(test_metrics, f, indent=2)
+        logger.info(f"Test metrics saved to {test_metrics_file}")
+
     # Save final model
     logger.info(f"Saving model to {output_dir}")
     trainer.save_model()
@@ -514,7 +578,8 @@ def train_experiment(config: Dict[str, Any], output_dir: str, log_file: str = No
                 "train_steps_per_second": train_result.metrics.get("train_steps_per_second"),
                 "total_flos": train_result.metrics.get("total_flos"),
                 "train_loss": train_result.metrics.get("train_loss"),
-            }
+            },
+            "test_metrics": test_metrics if test_metrics else None
         }, f, indent=2)
 
     # Push to Hub

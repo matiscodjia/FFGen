@@ -56,6 +56,13 @@ class ExperimentAnalyzer:
                         summary = json.load(f)
                         result['metrics_summary'] = summary
 
+                # Load test metrics
+                test_metrics_file = self.runs_dir / exp_id / "test_metrics.json"
+                if test_metrics_file.exists():
+                    with open(test_metrics_file) as f:
+                        test_metrics = json.load(f)
+                        result['test_metrics'] = test_metrics
+
                 # Load step-by-step metrics
                 metrics_file = self.runs_dir / exp_id / "metrics.jsonl"
                 if metrics_file.exists():
@@ -72,20 +79,18 @@ class ExperimentAnalyzer:
     def parse_experiment_config(self, exp_id: str) -> Dict[str, Any]:
         """Parse experiment ID to extract configuration"""
         # Format: {model}_{dataset}_bs{batch_size}
-        parts = exp_id.split('_')
+        # Example: SFR-Embedding-Code-400M_R_raft_bs32
+        # Example: gemma-embedding-300m_raft-ultra-clean_bs64
 
-        # Extract model (can be multi-part)
-        if 'jina' in exp_id:
-            model = 'jina-code-embed'
-            idx = exp_id.index('raft')
+        # Extract model (check for known model names)
+        if 'SFR-Embedding-Code-400M' in exp_id or 'SFR' in exp_id:
+            model = 'SFR-Embedding-Code-400M_R'
         elif 'gemma' in exp_id:
             model = 'gemma-embedding-300m'
-            idx = exp_id.index('raft')
         else:
             model = 'unknown'
-            idx = 0
 
-        # Extract dataset
+        # Extract dataset (check for raft-ultra-clean first, then raft)
         if 'raft-ultra-clean' in exp_id:
             dataset = 'raft-ultra-clean'
             dataset_quality = 'high'
@@ -97,6 +102,7 @@ class ExperimentAnalyzer:
             dataset_quality = 'unknown'
 
         # Extract batch size
+        parts = exp_id.split('_')
         bs_part = [p for p in parts if p.startswith('bs')]
         if bs_part:
             batch_size = int(bs_part[0].replace('bs', ''))
@@ -119,6 +125,7 @@ class ExperimentAnalyzer:
             config = self.parse_experiment_config(exp_id)
 
             metrics = exp.get('metrics_summary', {})
+            test_metrics = exp.get('test_metrics', {})
 
             row = {
                 'experiment_id': exp_id,
@@ -126,13 +133,25 @@ class ExperimentAnalyzer:
                 'dataset': config['dataset'],
                 'dataset_quality': config['dataset_quality'],
                 'batch_size': config['batch_size'],
+                # Validation metrics (from training)
                 'best_loss': metrics.get('best_loss', None),
-                'best_accuracy': metrics.get('best_accuracy', None),
+                'best_mrr': metrics.get('best_mrr', None),
+                'best_recall_at_10': metrics.get('best_recall_at_10', None),
                 'final_loss': metrics.get('final_loss', None),
+                'final_mrr': metrics.get('final_mrr', None),
+                'final_recall_at_10': metrics.get('final_recall_at_10', None),
+                # Legacy metrics (kept for compatibility)
+                'best_accuracy': metrics.get('best_accuracy', None),
                 'final_accuracy': metrics.get('final_accuracy', None),
                 'total_steps': metrics.get('total_steps', None),
                 'total_epochs': metrics.get('total_epochs', None),
                 'duration': exp.get('duration_seconds', None),
+                # Test metrics
+                'test_mrr': test_metrics.get('test_mrr', None),
+                'test_recall_at_1': test_metrics.get('test_recall_at_1', None),
+                'test_recall_at_5': test_metrics.get('test_recall_at_5', None),
+                'test_recall_at_10': test_metrics.get('test_recall_at_10', None),
+                'test_loss': test_metrics.get('test_loss', None),
             }
 
             rows.append(row)
@@ -147,9 +166,9 @@ class ExperimentAnalyzer:
 
         metrics = [
             ('best_loss', 'Best Loss', 'lower is better'),
-            ('best_accuracy', 'Best Accuracy', 'higher is better'),
-            ('final_loss', 'Final Loss', 'lower is better'),
-            ('final_accuracy', 'Final Accuracy', 'higher is better'),
+            ('best_mrr', 'Best MRR', 'higher is better'),
+            ('best_recall_at_10', 'Best Recall@10', 'higher is better'),
+            ('final_mrr', 'Final MRR', 'higher is better'),
         ]
 
         for idx, (metric, title, direction) in enumerate(metrics):
@@ -163,8 +182,8 @@ class ExperimentAnalyzer:
                     if len(subset) == 0:
                         continue
 
-                    label = f"{model.replace('jina-code-embed', 'Jina').replace('gemma-embedding-300m', 'Gemma')} - {dataset_quality}"
-                    marker = 'o' if model == 'jina-code-embed' else 's'
+                    label = f"{model.replace('SFR-Embedding-Code-400M_R', 'SFR-Code').replace('gemma-embedding-300m', 'Gemma')} - {dataset_quality}"
+                    marker = 'o' if model == 'SFR-Embedding-Code-400M_R' else 's'
                     linestyle = '-' if dataset_quality == 'high' else '--'
 
                     ax.plot(subset['batch_size'], subset[metric],
@@ -192,8 +211,8 @@ class ExperimentAnalyzer:
         fig.suptitle('Effect of Dataset Quality on Model Performance', fontsize=16, fontweight='bold')
 
         metrics = [
-            ('best_accuracy', 'Best Accuracy (higher is better)'),
-            ('best_loss', 'Best Loss (lower is better)')
+            ('best_mrr', 'Best MRR (higher is better)'),
+            ('best_recall_at_10', 'Best Recall@10 (higher is better)')
         ]
 
         for idx, (metric, title) in enumerate(metrics):
@@ -213,7 +232,7 @@ class ExperimentAnalyzer:
 
                     offset = width * (model_idx * 2 + quality_idx - 1.5)
 
-                    label = f"{model.replace('jina-code-embed', 'Jina').replace('gemma-embedding-300m', 'Gemma')} - {'Clean' if quality == 'high' else 'Original'}"
+                    label = f"{model.replace('SFR-Embedding-Code-400M_R', 'SFR-Code').replace('gemma-embedding-300m', 'Gemma')} - {'Clean' if quality == 'high' else 'Original'}"
                     color = f"C{model_idx * 2 + quality_idx}"
 
                     ax.bar(x + offset, subset[metric], width,
@@ -238,29 +257,29 @@ class ExperimentAnalyzer:
         fig, axes = plt.subplots(2, 2, figsize=(16, 12))
         fig.suptitle('Model Comparison Across Configurations', fontsize=16, fontweight='bold')
 
-        # 1. Heatmap: Best Accuracy
+        # 1. Heatmap: Best MRR
         ax = axes[0, 0]
         pivot = df.pivot_table(
-            values='best_accuracy',
+            values='best_mrr',
             index=['model', 'dataset_quality'],
             columns='batch_size',
             aggfunc='mean'
         )
-        sns.heatmap(pivot, annot=True, fmt='.4f', cmap='YlGnBu', ax=ax, cbar_kws={'label': 'Accuracy'})
-        ax.set_title('Best Accuracy Heatmap', fontweight='bold')
+        sns.heatmap(pivot, annot=True, fmt='.4f', cmap='YlGnBu', ax=ax, cbar_kws={'label': 'MRR'})
+        ax.set_title('Best MRR Heatmap', fontweight='bold')
         ax.set_xlabel('Batch Size', fontweight='bold')
         ax.set_ylabel('Model & Dataset', fontweight='bold')
 
-        # 2. Heatmap: Best Loss
+        # 2. Heatmap: Best Recall@10
         ax = axes[0, 1]
         pivot = df.pivot_table(
-            values='best_loss',
+            values='best_recall_at_10',
             index=['model', 'dataset_quality'],
             columns='batch_size',
             aggfunc='mean'
         )
-        sns.heatmap(pivot, annot=True, fmt='.4f', cmap='YlOrRd_r', ax=ax, cbar_kws={'label': 'Loss'})
-        ax.set_title('Best Loss Heatmap', fontweight='bold')
+        sns.heatmap(pivot, annot=True, fmt='.4f', cmap='YlGnBu', ax=ax, cbar_kws={'label': 'Recall@10'})
+        ax.set_title('Best Recall@10 Heatmap', fontweight='bold')
         ax.set_xlabel('Batch Size', fontweight='bold')
         ax.set_ylabel('Model & Dataset', fontweight='bold')
 
@@ -268,7 +287,7 @@ class ExperimentAnalyzer:
         ax = axes[1, 0]
         for model in df['model'].unique():
             subset = df[df['model'] == model]
-            model_name = model.replace('jina-code-embed', 'Jina').replace('gemma-embedding-300m', 'Gemma')
+            model_name = model.replace('SFR-Embedding-Code-400M_R', 'SFR-Code').replace('gemma-embedding-300m', 'Gemma')
             ax.scatter(subset['batch_size'], subset['duration'] / 60,
                       label=model_name, s=100, alpha=0.6)
 
@@ -285,15 +304,15 @@ class ExperimentAnalyzer:
         ax = axes[1, 1]
         # Normalize metrics and create composite score
         df_norm = df.copy()
-        df_norm['accuracy_score'] = (df_norm['best_accuracy'] - df_norm['best_accuracy'].min()) / (df_norm['best_accuracy'].max() - df_norm['best_accuracy'].min())
-        df_norm['loss_score'] = 1 - (df_norm['best_loss'] - df_norm['best_loss'].min()) / (df_norm['best_loss'].max() - df_norm['best_loss'].min())
-        df_norm['composite_score'] = (df_norm['accuracy_score'] + df_norm['loss_score']) / 2
+        df_norm['mrr_score'] = (df_norm['best_mrr'] - df_norm['best_mrr'].min()) / (df_norm['best_mrr'].max() - df_norm['best_mrr'].min())
+        df_norm['recall_score'] = (df_norm['best_recall_at_10'] - df_norm['best_recall_at_10'].min()) / (df_norm['best_recall_at_10'].max() - df_norm['best_recall_at_10'].min())
+        df_norm['composite_score'] = (df_norm['mrr_score'] + df_norm['recall_score']) / 2
 
         for model in df_norm['model'].unique():
             for quality in df_norm['dataset_quality'].unique():
                 subset = df_norm[(df_norm['model'] == model) & (df_norm['dataset_quality'] == quality)]
-                label = f"{model.replace('jina-code-embed', 'Jina').replace('gemma-embedding-300m', 'Gemma')} - {quality}"
-                marker = 'o' if model == 'jina-code-embed' else 's'
+                label = f"{model.replace('SFR-Embedding-Code-400M_R', 'SFR-Code').replace('gemma-embedding-300m', 'Gemma')} - {quality}"
+                marker = 'o' if model == 'SFR-Embedding-Code-400M_R' else 's'
                 ax.plot(subset['batch_size'], subset['composite_score'],
                        marker=marker, label=label, linewidth=2, markersize=8)
 
@@ -354,7 +373,7 @@ class ExperimentAnalyzer:
                         steps = [m['step'] for m in exp_data['metrics']]
                         values = [m[metric] for m in exp_data['metrics']]
 
-                        model_label = exp_data['config']['model'].replace('jina-code-embed', 'J').replace('gemma-embedding-300m', 'G')
+                        model_label = exp_data['config']['model'].replace('SFR-Embedding-Code-400M_R', 'SFR').replace('gemma-embedding-300m', 'G')
                         label = f"{group_key} ({model_label})"
 
                         ax.plot(steps, values, label=label, alpha=0.7, linewidth=1.5)
@@ -394,57 +413,107 @@ class ExperimentAnalyzer:
             f.write("BEST PERFORMING CONFIGURATIONS\n")
             f.write("-"*80 + "\n")
 
-            best_acc = df.loc[df['best_accuracy'].idxmax()]
-            f.write(f"\nHighest Accuracy:\n")
-            f.write(f"  Experiment: {best_acc['experiment_id']}\n")
-            f.write(f"  Model: {best_acc['model']}\n")
-            f.write(f"  Dataset: {best_acc['dataset']} ({best_acc['dataset_quality']})\n")
-            f.write(f"  Batch Size: {best_acc['batch_size']}\n")
-            f.write(f"  Best Accuracy: {best_acc['best_accuracy']:.4f}\n")
-            f.write(f"  Best Loss: {best_acc['best_loss']:.4f}\n")
+            best_mrr = df.loc[df['best_mrr'].idxmax()]
+            f.write(f"\nHighest MRR (Validation):\n")
+            f.write(f"  Experiment: {best_mrr['experiment_id']}\n")
+            f.write(f"  Model: {best_mrr['model']}\n")
+            f.write(f"  Dataset: {best_mrr['dataset']} ({best_mrr['dataset_quality']})\n")
+            f.write(f"  Batch Size: {best_mrr['batch_size']}\n")
+            f.write(f"  Best MRR: {best_mrr['best_mrr']:.4f}\n")
+            f.write(f"  Best Recall@10: {best_mrr['best_recall_at_10']:.4f}\n")
+            f.write(f"  Best Loss: {best_mrr['best_loss']:.4f}\n")
 
-            best_loss = df.loc[df['best_loss'].idxmin()]
-            f.write(f"\nLowest Loss:\n")
-            f.write(f"  Experiment: {best_loss['experiment_id']}\n")
-            f.write(f"  Model: {best_loss['model']}\n")
-            f.write(f"  Dataset: {best_loss['dataset']} ({best_loss['dataset_quality']})\n")
-            f.write(f"  Batch Size: {best_loss['batch_size']}\n")
-            f.write(f"  Best Loss: {best_loss['best_loss']:.4f}\n")
-            f.write(f"  Best Accuracy: {best_loss['best_accuracy']:.4f}\n")
+            best_recall = df.loc[df['best_recall_at_10'].idxmax()]
+            f.write(f"\nHighest Recall@10 (Validation):\n")
+            f.write(f"  Experiment: {best_recall['experiment_id']}\n")
+            f.write(f"  Model: {best_recall['model']}\n")
+            f.write(f"  Dataset: {best_recall['dataset']} ({best_recall['dataset_quality']})\n")
+            f.write(f"  Batch Size: {best_recall['batch_size']}\n")
+            f.write(f"  Best Recall@10: {best_recall['best_recall_at_10']:.4f}\n")
+            f.write(f"  Best MRR: {best_recall['best_mrr']:.4f}\n")
 
             # Effect of batch size
-            f.write("\n\nEFFECT OF BATCH SIZE\n")
+            f.write("\n\nEFFECT OF BATCH SIZE (VALIDATION METRICS)\n")
             f.write("-"*80 + "\n")
             batch_analysis = df.groupby('batch_size').agg({
-                'best_accuracy': ['mean', 'std'],
+                'best_mrr': ['mean', 'std'],
+                'best_recall_at_10': ['mean', 'std'],
                 'best_loss': ['mean', 'std']
             }).round(4)
             f.write(batch_analysis.to_string())
 
             # Effect of dataset quality
-            f.write("\n\nEFFECT OF DATASET QUALITY\n")
+            f.write("\n\nEFFECT OF DATASET QUALITY (VALIDATION METRICS)\n")
             f.write("-"*80 + "\n")
             quality_analysis = df.groupby('dataset_quality').agg({
-                'best_accuracy': ['mean', 'std'],
+                'best_mrr': ['mean', 'std'],
+                'best_recall_at_10': ['mean', 'std'],
                 'best_loss': ['mean', 'std']
             }).round(4)
             f.write(quality_analysis.to_string())
 
             # Model comparison
-            f.write("\n\nMODEL COMPARISON\n")
+            f.write("\n\nMODEL COMPARISON (VALIDATION METRICS)\n")
             f.write("-"*80 + "\n")
             model_analysis = df.groupby('model').agg({
-                'best_accuracy': ['mean', 'std', 'max'],
+                'best_mrr': ['mean', 'std', 'max'],
+                'best_recall_at_10': ['mean', 'std', 'max'],
                 'best_loss': ['mean', 'std', 'min']
             }).round(4)
             f.write(model_analysis.to_string())
 
+            # Test set performance (if available)
+            if 'test_mrr' in df.columns and df['test_mrr'].notna().any():
+                f.write("\n\n" + "="*80 + "\n")
+                f.write("TEST SET PERFORMANCE\n")
+                f.write("="*80 + "\n")
+
+                # Best test performance
+                df_with_test = df[df['test_mrr'].notna()]
+                if len(df_with_test) > 0:
+                    best_test_mrr = df_with_test.loc[df_with_test['test_mrr'].idxmax()]
+                    f.write(f"\nBest Test MRR:\n")
+                    f.write(f"  Experiment: {best_test_mrr['experiment_id']}\n")
+                    f.write(f"  Model: {best_test_mrr['model']}\n")
+                    f.write(f"  Dataset: {best_test_mrr['dataset']} ({best_test_mrr['dataset_quality']})\n")
+                    f.write(f"  Batch Size: {best_test_mrr['batch_size']}\n")
+                    f.write(f"  Test MRR: {best_test_mrr['test_mrr']:.4f}\n")
+                    f.write(f"  Test Recall@1: {best_test_mrr['test_recall_at_1']:.4f}\n")
+                    f.write(f"  Test Recall@5: {best_test_mrr['test_recall_at_5']:.4f}\n")
+                    f.write(f"  Test Recall@10: {best_test_mrr['test_recall_at_10']:.4f}\n")
+                    f.write(f"  Test Loss: {best_test_mrr['test_loss']:.4f}\n")
+
+                    # Test metrics by model
+                    f.write("\n\nTest Performance by Model:\n")
+                    f.write("-"*80 + "\n")
+                    test_by_model = df_with_test.groupby('model').agg({
+                        'test_mrr': ['mean', 'std', 'max'],
+                        'test_recall_at_1': ['mean', 'std', 'max'],
+                        'test_recall_at_10': ['mean', 'std', 'max'],
+                        'test_loss': ['mean', 'std', 'min']
+                    }).round(4)
+                    f.write(test_by_model.to_string())
+
+                    # Test metrics by dataset quality
+                    f.write("\n\nTest Performance by Dataset Quality:\n")
+                    f.write("-"*80 + "\n")
+                    test_by_quality = df_with_test.groupby('dataset_quality').agg({
+                        'test_mrr': ['mean', 'std'],
+                        'test_recall_at_1': ['mean', 'std'],
+                        'test_recall_at_10': ['mean', 'std'],
+                        'test_loss': ['mean', 'std']
+                    }).round(4)
+                    f.write(test_by_quality.to_string())
+
             # Detailed results table
             f.write("\n\nDETAILED RESULTS TABLE\n")
             f.write("-"*80 + "\n")
-            results_table = df[['experiment_id', 'model', 'dataset_quality', 'batch_size',
-                               'best_accuracy', 'best_loss', 'final_accuracy', 'final_loss']]
-            results_table = results_table.sort_values('best_accuracy', ascending=False)
+            cols_to_show = ['experiment_id', 'model', 'dataset_quality', 'batch_size',
+                           'best_mrr', 'best_recall_at_10', 'best_loss']
+            if 'test_mrr' in df.columns:
+                cols_to_show.extend(['test_mrr', 'test_recall_at_1', 'test_recall_at_10'])
+            results_table = df[cols_to_show]
+            results_table = results_table.sort_values('best_mrr', ascending=False)
             f.write(results_table.to_string(index=False))
 
         print(f"💾 Saved: {report_file}")
