@@ -54,13 +54,13 @@ class IndustrialPipeline:
 
     # Base model configurations
     BASE_MODELS = {
-        "jina-code-embed": {
-            "model_name": "jinaai/jina-embeddings-v3",
-            "hub_prefix": "matiscodjia/ffgen-jina-code",
+        "SFR-Embedding-Code-400M_R": {
+            "model_name": "Salesforce/SFR-Embedding-Code-400M_R",
+            "hub_prefix": "matis35/ffgen-codeXembed",
         },
         "gemma-embedding-300m": {
-            "model_name": "google/gemma-2-2b-it",
-            "hub_prefix": "matiscodjia/ffgen-gemma-300m",
+            "model_name": "google/embeddinggemma-300m",
+            "hub_prefix": "matis35/ffgen-gemma-300m",
         }
     }
 
@@ -127,7 +127,7 @@ class IndustrialPipeline:
 
                     # Check if resuming and this experiment is already done
                     if self.resume_from and self._is_experiment_completed(exp_id):
-                        print(f"⏭️  Skipping completed experiment: {exp_id}")
+                        print(f"Skipping completed experiment: {exp_id}")
                         self.completed_experiments.append(exp_id)
                         continue
 
@@ -184,7 +184,7 @@ class IndustrialPipeline:
             bool: True if successful, False otherwise
         """
         print(f"\n{'='*80}")
-        print(f"🚀 Starting Experiment: {config.experiment_id}")
+        print(f"Starting Experiment: {config.experiment_id}")
         print(f"{'='*80}")
         print(f"  Model: {config.base_model}")
         print(f"  Dataset: {config.dataset_name}")
