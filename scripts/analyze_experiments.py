@@ -40,7 +40,7 @@ class ExperimentAnalyzer:
 
     def load_all_results(self):
         """Load results from all completed experiments"""
-        print("📂 Loading experiment results...")
+        print("Loading experiment results...")
 
         result_files = list(self.results_dir.glob("*_results.json"))
 
@@ -74,7 +74,7 @@ class ExperimentAnalyzer:
 
                 self.experiments_data.append(result)
 
-        print(f"✅ Loaded {len(self.experiments_data)} experiments")
+        print(f"Loaded {len(self.experiments_data)} experiments")
 
     def parse_experiment_config(self, exp_id: str) -> Dict[str, Any]:
         """Parse experiment ID to extract configuration"""
@@ -202,7 +202,7 @@ class ExperimentAnalyzer:
         plt.tight_layout()
         output_file = self.analysis_dir / "batch_size_effect.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        print(f"💾 Saved: {output_file}")
+        print(f"Saved: {output_file}")
         plt.close()
 
     def plot_dataset_quality_effect(self, df: pd.DataFrame):
@@ -249,7 +249,7 @@ class ExperimentAnalyzer:
         plt.tight_layout()
         output_file = self.analysis_dir / "dataset_quality_effect.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        print(f"💾 Saved: {output_file}")
+        print(f"Saved: {output_file}")
         plt.close()
 
     def plot_model_comparison(self, df: pd.DataFrame):
@@ -328,12 +328,12 @@ class ExperimentAnalyzer:
         plt.tight_layout()
         output_file = self.analysis_dir / "model_comparison.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        print(f"💾 Saved: {output_file}")
+        print(f"Saved: {output_file}")
         plt.close()
 
     def plot_training_curves(self):
         """Plot training curves for all experiments"""
-        print("📈 Generating training curves...")
+        print("Generating training curves...")
 
         # Group by configuration
         fig, axes = plt.subplots(2, 2, figsize=(18, 14))
@@ -387,7 +387,7 @@ class ExperimentAnalyzer:
         plt.tight_layout()
         output_file = self.analysis_dir / "training_curves.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        print(f"💾 Saved: {output_file}")
+        print(f"Saved: {output_file}")
         plt.close()
 
     def generate_summary_report(self, df: pd.DataFrame):
@@ -516,7 +516,7 @@ class ExperimentAnalyzer:
             results_table = results_table.sort_values('best_mrr', ascending=False)
             f.write(results_table.to_string(index=False))
 
-        print(f"💾 Saved: {report_file}")
+        print(f"Saved: {report_file}")
 
     def run_full_analysis(self):
         """Run complete analysis pipeline"""
@@ -526,7 +526,7 @@ class ExperimentAnalyzer:
         self.load_all_results()
 
         if not self.experiments_data:
-            print("❌ No experiment results found!")
+            print("No experiment results found!")
             return
 
         # Create summary DataFrame
@@ -535,21 +535,21 @@ class ExperimentAnalyzer:
         # Save raw data
         csv_file = self.analysis_dir / "all_experiments.csv"
         df.to_csv(csv_file, index=False)
-        print(f"💾 Saved: {csv_file}")
+        print(f"Saved: {csv_file}")
 
         # Generate visualizations
-        print("\n📊 Generating visualizations...")
+        print("\nGenerating visualizations...")
         self.plot_batch_size_effect(df)
         self.plot_dataset_quality_effect(df)
         self.plot_model_comparison(df)
         self.plot_training_curves()
 
         # Generate summary report
-        print("\n📝 Generating summary report...")
+        print("\nGenerating summary report...")
         self.generate_summary_report(df)
 
-        print("\n✅ Analysis complete!")
-        print(f"📁 Results saved to: {self.analysis_dir}")
+        print("\nAnalysis complete!")
+        print(f"Results saved to: {self.analysis_dir}")
 
 
 def main():
