@@ -68,12 +68,12 @@ class IndustrialPipeline:
     DATASETS = {
         "raft": {
             "name": "RAFT Original",
-            "path": "data/raft_dataset.jsonl",
+            "path": "matis35/RAFT",
             "quality": "standard"
         },
         "raft-ultra-clean": {
             "name": "RAFT Ultra Clean",
-            "path": "data/ultra_clean_final_dataset/train.jsonl",
+            "path": "matis35/RAFT_CLEAN_V1",
             "quality": "high"
         }
     }
