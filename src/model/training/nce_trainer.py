@@ -202,7 +202,7 @@ def main():
     # Le modèle de base (ex: google/gemma-2b ou embeddinggemma-300m)
     BASE_MODEL = "google/embeddinggemma-300m" 
     # Le dataset sur le Hub HF
-    DATASET_ID = "matis35/SYNT_V3"
+    DATASET_ID = "matis35/cf-synt"
     # Dossier de sortie final
     FINAL_OUTPUT_DIR = "./final_merged_model"
     
