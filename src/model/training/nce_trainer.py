@@ -284,32 +284,62 @@ def main():
     )
 
     print("\n‍ Début du Training...")
-    trainer.train()
+    
+    # 1. CAPTURE DU RESULTAT D'ENTRAINEMENT
+    train_result = trainer.train()
+    
+    # On sauvegarde les métriques d'entraînement (loss finale, temps, epochs, etc.)
+    train_metrics = train_result.metrics
+    trainer.save_metrics("train", train_metrics)
+    trainer.save_state() # Sauvegarde l'état du trainer (log history complet)
 
-    # --- F. FUSION ET SAUVEGARDE FINALE (CRITIQUE) ---
+    # --- F. FUSION ET SAUVEGARDE FINALE ---
     print("\n FUSION DU MODÈLE (Merge & Unload)...")
-    
-    # 1. On s'assure que l'encodeur est sur CPU pour éviter les OOM pendant la fusion
     model.encoder.to("cpu")
-    
-    # 2. On fusionne les poids LoRA dans le modèle de base
-    # Cela transforme le modèle "Base + Adapter" en un "Modèle Unique"
     model.encoder = model.encoder.merge_and_unload()
     
-    # 3. Sauvegarde propre
     print(f" Sauvegarde du modèle complet dans : {FINAL_OUTPUT_DIR}")
     model.encoder.save_pretrained(FINAL_OUTPUT_DIR, safe_serialization=True)
     tokenizer.save_pretrained(FINAL_OUTPUT_DIR)
-    
-    print(f" TERMINÉ ! Le modèle final est prêt dans '{FINAL_OUTPUT_DIR}'.")
-    print(" Tu peux maintenant le charger directement avec AutoModel.from_pretrained()")
 
-    # --- G. Test Final (Optionnel) ---
+    # --- G. Test Final & Sauvegarde des Métriques ---
     print("\n Évaluation finale sur le Test Set...")
-    # Il faut remettre sur GPU pour le test si dispo
     model.encoder.to(device)
+    
+    # 2. CAPTURE DU RESULTAT DE TEST
     test_output = trainer.predict(test_dataset)
-    print(test_output.metrics)
+    test_metrics = test_output.metrics
+    
+    print(" Métriques brutes :", test_metrics)
+
+    # 3. CRÉATION DU DATASET DE MÉTRIQUES
+    # On fusionne tout : train_metrics + test_metrics
+    all_metrics = {**train_metrics, **test_metrics}
+    
+    # Ajout d'infos contextuelles (utile pour comparer des runs plus tard)
+    all_metrics["base_model"] = BASE_MODEL
+    all_metrics["dataset_id"] = DATASET_ID
+    all_metrics["output_dir"] = FINAL_OUTPUT_DIR
+    
+    # CONVERSION EN FORMAT DATASET HF
+    # Important : HF Dataset attend des listes pour les colonnes. 
+    # On met donc chaque valeur dans une liste [valeur].
+    metrics_dict_list = {k: [v] for k, v in all_metrics.items()}
+    
+    from datasets import Dataset
+    metrics_ds = Dataset.from_dict(metrics_dict_list)
+    
+    # 4. SAUVEGARDE SUR DISQUE
+    metrics_save_path = os.path.join(FINAL_OUTPUT_DIR, "run_metrics")
+    metrics_ds.save_to_disk(metrics_save_path)
+    
+    # Optionnel : Sauvegarde en JSON pur aussi (plus lisible humainement)
+    import json
+    with open(os.path.join(FINAL_OUTPUT_DIR, "metrics.json"), "w") as f:
+        json.dump(all_metrics, f, indent=4)
+
+    print(f"\n Métriques sauvegardées dans : {metrics_save_path}")
+    print(metrics_ds)
 
 if __name__ == "__main__":
     main()
