@@ -11,7 +11,18 @@ __pycache__
 heavy_data
 .env
 *.png
-
+*.sqlite3
+chroma_db_storage
+*.jsonl
 # Secrets and API keys
 configs/secrets.yml
 secrets.yml
+*.jsonl
+*.tex
+*.jsonl
+legacy
+experiments
+*.lock
+prompt.text
+Makefile
+best_model_final
