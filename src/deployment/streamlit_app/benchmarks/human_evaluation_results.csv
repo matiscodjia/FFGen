@@ -1,0 +1,13 @@
+dataset_id,evaluator,timestamp,tech_validity,diagnostic_score,has_spoiler,is_maieutic,actionability,comment
+0,Expert_1,2026-01-08T11:23:21.960462,Oui (Correct),Cause Racine (ex: malloc manquant),False,True,Immédiat,Le feedback est un peu trop long
+0,Expert_1,2026-01-08T13:09:23.940171,Oui (Correct),Cause Racine (ex: malloc manquant),False,False,Immédiat,Feedback trop long
+1,Expert_1,2026-01-08T13:11:07.431838,Oui (Correct),Cause Racine (ex: malloc manquant),False,True,Immédiat,"Parfait
+@"
+2,Expert_1,2026-01-08T13:11:50.182131,Discutable (Imprécis),Cause Racine (ex: malloc manquant),False,True,Immédiat,Parfait
+3,Expert_1,2026-01-08T13:12:44.663000,Discutable (Imprécis),Cause Racine (ex: malloc manquant),False,True,Immédiat,Parfait
+4,Expert_1,2026-01-08T13:12:50.609774,Discutable (Imprécis),Cause Racine (ex: malloc manquant),False,True,Immédiat,Parfait
+5,Expert_1,2026-01-08T13:12:55.645751,Oui (Correct),Cause Racine (ex: malloc manquant),False,True,Immédiat,Parfait
+6,Expert_1,2026-01-08T13:13:00.590676,Oui (Correct),Cause Racine (ex: malloc manquant),False,True,Immédiat,Parfait
+7,Expert_1,2026-01-08T13:13:03.098498,Oui (Correct),Cause Racine (ex: malloc manquant),False,True,Immédiat,Parfait
+8,Expert_1,2026-01-08T13:13:04.732185,Oui (Correct),Cause Racine (ex: malloc manquant),False,True,Immédiat,Parfait
+9,Expert_1,2026-01-08T13:13:21.744115,Oui (Correct),Cause Racine (ex: malloc manquant),False,True,Immédiat,Parfait

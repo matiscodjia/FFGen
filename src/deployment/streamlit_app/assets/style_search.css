@@ -1,0 +1,52 @@
+/* Style moderne des cartes de résultats */
+.result-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-left: 5px solid #3b82f6;
+    color: #1e293b; 
+    padding: 1.5rem; 
+    border-radius: 0.5rem; 
+    margin: 1rem 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s;
+}
+
+.result-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Style de la console de debug (Terminal-like) */
+.debug-terminal {
+    background-color: #1e1e1e; 
+    color: #4ade80; 
+    font-family: 'JetBrains Mono', 'Courier New', monospace; 
+    padding: 15px; 
+    border-radius: 8px; 
+    font-size: 0.85rem; 
+    margin-bottom: 10px;
+    border: 1px solid #333;
+    overflow-x: auto;
+    line-height: 1.5;
+}
+
+/* Badges de statut */
+.badge {
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-success { background-color: #dcfce7; color: #166534; }
+.badge-warning { background-color: #fef9c3; color: #854d0e; }
+.badge-error { background-color: #fee2e2; color: #991b1b; }
+
+/* Titre avec dégradé */
+h1 {
+    background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}

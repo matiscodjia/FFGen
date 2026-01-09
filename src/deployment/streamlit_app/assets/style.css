@@ -1,0 +1,66 @@
+:root { 
+    --primary: #3b82f6; 
+    --secondary: #8b5cf6; 
+    --success: #10b981; 
+    --warning: #f59e0b; 
+    --danger: #ef4444; 
+}
+
+.block-container { 
+    padding-top: 2rem; 
+    padding-bottom: 2rem; 
+}
+
+h1 {
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hit-card {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    margin: 1rem 0;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.miss-card {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    margin: 1rem 0;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.result-header { 
+    display: flex; 
+    justify-content: space-between; 
+    margin-bottom: 1rem; 
+    font-weight: 600; 
+}
+
+.confidence-badge { 
+    background: rgba(255, 255, 255, 0.2); 
+    padding: 0.2rem 0.8rem; 
+    border-radius: 2rem; 
+    font-size: 0.85rem; 
+}
+
+.code-block { 
+    background: rgba(0, 0, 0, 0.3); 
+    padding: 1rem; 
+    border-radius: 0.5rem; 
+    font-family: monospace; 
+    font-size: 0.85rem; 
+    overflow-x: auto; 
+    margin-top: 0.5rem; 
+}
+
+.stButton > button { 
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); 
+    color: white; 
+    border: none; 
+}
