@@ -1,19 +1,16 @@
 {
-  "total_attempts": 15727,
-  "total_successes": 14137,
-  "total_failures": 863,
-  "total_tokens_prompt": 10718634,
-  "total_tokens_completion": 12609921,
-  "total_tokens_total": 23328555,
-  "total_time_seconds": 461103.8685157299,
-  "failure_reasons": {
-    "compilation_error": 381,
-    "semantic_validation_failed": 482
-  },
-  "start_time": "2026-01-07T14:50:15.242585",
-  "end_time": "2026-01-08T16:27:58.043927",
-  "total_duration_seconds": 92262.801342,
-  "total_duration_human": "25h 37m",
-  "estimated_cost_usd": 5.03,
-  "success_rate": 94.25
+  "total_attempts": 19,
+  "total_successes": 19,
+  "total_failures": 0,
+  "total_tokens_prompt": 13408,
+  "total_tokens_completion": 17527,
+  "total_tokens_total": 30935,
+  "total_time_seconds": 608.236617565155,
+  "failure_reasons": {},
+  "start_time": "2026-01-09T09:55:03.484707",
+  "end_time": "2026-01-09T09:57:20.443011",
+  "total_duration_seconds": 136.958304,
+  "total_duration_human": "0h 2m",
+  "estimated_cost_usd": 0.01,
+  "success_rate": 100.0
 }

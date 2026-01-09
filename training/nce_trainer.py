@@ -160,7 +160,7 @@ def inspect_global_diagonal_mean(model, collator, dataset, batch_size=8, max_ste
             inputs = {k: v.to(device) for k, v in inputs.items() if k != "labels"}
             code_emb, feedback_emb = model(**inputs)
             
-            # Calcul probas
+            
             similarity_matrix = torch.matmul(code_emb, feedback_emb.T) / model.temperature
             probs = F.softmax(similarity_matrix, dim=1)
             all_diagonal_probs.extend(torch.diagonal(probs).cpu().numpy())
@@ -178,7 +178,7 @@ def main():
     # Le modèle de base (ex: google/gemma-2b ou embeddinggemma-300m)
     BASE_MODEL = "google/embeddinggemma-300m" 
     # Le dataset sur le Hub HF
-    DATASET_ID = "matis35/SYNT_V3"
+    DATASET_ID = "matis35/SYNT_V4"
     # Dossier de sortie final
     FINAL_OUTPUT_DIR = "./final_merged_model"
     
@@ -222,15 +222,15 @@ def main():
     # --- D. Inspection Initiale ---
     inspect_global_diagonal_mean(model, collator, dataset)
 
-    """# --- E. Entraînement ---
+    # --- E. Entraînement ---
     training_args = TrainingArguments(
         output_dir="./checkpoints_temp", # Dossier temporaire pour les sauvegardes en cours
         num_train_epochs=5,
-        per_device_train_batch_size=32, # Ajuster selon VRAM
-        per_device_eval_batch_size=32,
+        per_device_train_batch_size=64, # Ajuster selon VRAM
+        per_device_eval_batch_size=64,
         learning_rate=2e-4,
         bf16=True, # Mettre False si ancien GPU ou erreur
-        logging_steps=10,    
+        logging_steps=15,    
         eval_strategy="steps",
         eval_steps=100,
         save_strategy="steps",
@@ -278,7 +278,7 @@ def main():
     # Il faut remettre sur GPU pour le test si dispo
     model.encoder.to(device)
     test_output = trainer.predict(test_dataset)
-    print(test_output.metrics)"""
+    print(test_output.metrics)
 
 if __name__ == "__main__":
     main()
