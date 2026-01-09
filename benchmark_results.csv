@@ -1,0 +1,5 @@
+Dataset,Nb Exemples,Code Diversity (↑),Code Redundancy (↓),Feedback Diversity (↑),Feedback Redundancy (↓),Feedback Self-BLEU (↓),Num Themes,Theme Balance (↑)
+RAFT,9445,0.559,0.441,0.549,0.45,0.568,-,-
+SYNT_V2,3704,0.556,0.443,0.519,0.48,0.562,-,-
+SYNT_V4,7977,0.694,0.305,0.495,0.504,0.554,30,0.995
+cf-synt,13231,0.499,0.501,0.551,0.449,0.499,147,0.938

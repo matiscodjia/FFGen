@@ -24,9 +24,9 @@ except LookupError:
 # ==========================================
 DATASETS_TO_TEST = [
     "matis35/RAFT",
-    "matis35/RAFT_CLEAN_V1",
     "matis35/SYNT_V2",
-    "matis35/SYNT_V4"
+    "matis35/SYNT_V4",
+    "matis35/cf-synt"
 ]
 
 # Colonnes à analyser séparément

@@ -14,6 +14,30 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments
 from peft import get_peft_model, LoraConfig, TaskType
 
+
+import re
+
+def clean_c_code(code_string):
+    if not code_string: return ""
+    
+    # 1. Supprimer les commentaires blocs /* ... */
+    # [\s\S] permet de matcher aussi les sauts de ligne
+    code_string = re.sub(r'/\*[\s\S]*?\*/', '', code_string)
+    
+    # 2. Supprimer les commentaires ligne // ...
+    code_string = re.sub(r'//.*', '', code_string)
+    
+    # 3. Supprimer la fonction main et tout ce qui suit
+    # On cherche "int main(...){" ou "void main(...){" et on coupe tout jusqu'à la fin
+    # C'est une heuristique robuste car le main sert souvent de runner de test à la fin du fichier
+    code_string = re.sub(r'(int|void)\s+main\s*\(.*?\)\s*\{[\s\S]*', '', code_string)
+    
+    # 4. (Optionnel) Supprimer les directives #include si tu veux vraiment juste la logique
+    # code_string = re.sub(r'#include.*', '', code_string)
+    
+    # 5. Nettoyage des espaces vides excessifs
+    return code_string.strip()
+
 # ==========================================
 # 2. CLASSES UTILITAIRES (Dataset, Collator)
 # ==========================================
@@ -191,7 +215,14 @@ def main():
     # --- B. Chargement des Données ---
     print(f" Chargement du dataset {DATASET_ID}...")
     data_dict = load_dataset(DATASET_ID)
+    print(" Nettoyage du code (suppression commentaires & main)...")
     
+    # On applique la fonction sur tout le dataset (Train, Val, Test) d'un coup
+    # num_proc=4 permet de paralléliser le nettoyage sur 4 cœurs CPU
+    data_dict = data_dict.map(
+        lambda x: {"code": clean_c_code(x["code"])}, 
+        num_proc=4 
+    )
     dataset = CFDataset(data_dict["train"].to_list())
     val_dataset = CFDataset(data_dict["validation"].to_list())
     
@@ -222,7 +253,7 @@ def main():
     # --- D. Inspection Initiale ---
     inspect_global_diagonal_mean(model, collator, dataset)
 
-    """# --- E. Entraînement ---
+    # --- E. Entraînement ---
     training_args = TrainingArguments(
         output_dir="./checkpoints_temp", # Dossier temporaire pour les sauvegardes en cours
         num_train_epochs=5,
@@ -278,7 +309,7 @@ def main():
     # Il faut remettre sur GPU pour le test si dispo
     model.encoder.to(device)
     test_output = trainer.predict(test_dataset)
-    print(test_output.metrics)"""
+    print(test_output.metrics)
 
 if __name__ == "__main__":
     main()
