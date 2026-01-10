@@ -13,10 +13,12 @@ from tqdm import tqdm
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments
 from peft import get_peft_model, LoraConfig, TaskType
-
-
 import re
+import json
 
+# ==========================================
+# 1. NETTOYAGE CODE C
+# ==========================================
 def clean_c_code(code_string):
     if not code_string: return ""
     
@@ -168,8 +170,49 @@ def compute_metrics(eval_pred):
     }
 
 # ==========================================
-# 5. DIAGNOSTIC AVANT ENTRAINEMENT
+# 5. DIAGNOSTIC & VISUALISATION (PLOTTING)
 # ==========================================
+
+def plot_loss_curves(trainer_state, output_path="loss_curve.png"):
+    """
+    Extrait l'historique d'entraînement (log_history) et trace les courbes Train vs Val.
+    Sauvegarde l'image dans output_path.
+    """
+    history = trainer_state.log_history
+    
+    train_steps = []
+    train_losses = []
+    eval_steps = []
+    eval_losses = []
+    
+    for entry in history:
+        if 'loss' in entry:
+            train_steps.append(entry['step'])
+            train_losses.append(entry['loss'])
+        if 'eval_loss' in entry:
+            eval_steps.append(entry['step'])
+            eval_losses.append(entry['eval_loss'])
+            
+    plt.figure(figsize=(10, 6))
+    
+    # Plot Training Loss
+    if train_steps:
+        plt.plot(train_steps, train_losses, label='Training Loss', alpha=0.7, color='blue')
+        
+    # Plot Validation Loss
+    if eval_steps:
+        plt.plot(eval_steps, eval_losses, label='Validation Loss', linewidth=2, color='orange')
+    
+    plt.title('Evolution of Training and Validation Loss')
+    plt.xlabel('Steps')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    
+    print(f"📊 Sauvegarde du graphique de loss vers : {output_path}")
+    plt.savefig(output_path)
+    plt.close()
+
 def inspect_global_diagonal_mean(model, collator, dataset, batch_size=8, max_steps=20):
     print(f"\n Inspection rapide (Pre-training check) sur {max_steps} batchs...")
     dataloader = DataLoader(dataset, batch_size=batch_size, collate_fn=collator, shuffle=False)
@@ -202,7 +245,7 @@ def main():
     # Le modèle de base (ex: google/gemma-2b ou embeddinggemma-300m)
     BASE_MODEL = "google/embeddinggemma-300m" 
     # Le dataset sur le Hub HF
-    DATASET_ID = "matis35/cf-synt"
+    DATASET_ID = "matis35/cf-synt_V2"
     # Dossier de sortie final
     FINAL_OUTPUT_DIR = "./final_merged_model"
     
@@ -257,8 +300,8 @@ def main():
     training_args = TrainingArguments(
         output_dir="./checkpoints_temp", # Dossier temporaire pour les sauvegardes en cours
         num_train_epochs=5,
-        per_device_train_batch_size=32, # Ajuster selon VRAM
-        per_device_eval_batch_size=32,
+        per_device_train_batch_size=64, # Ajuster selon VRAM
+        per_device_eval_batch_size=64,
         learning_rate=2e-4,
         bf16=True, # Mettre False si ancien GPU ou erreur
         logging_steps=10,    
@@ -293,17 +336,31 @@ def main():
     trainer.save_metrics("train", train_metrics)
     trainer.save_state() # Sauvegarde l'état du trainer (log history complet)
 
-    # --- F. FUSION ET SAUVEGARDE FINALE ---
+    # --- NOUVEAU : GENERATION ET SAUVEGARDE DU GRAPHIQUE LOSS ---
+    # On utilise trainer.state qui contient tout l'historique
+    plot_loss_curves(trainer.state, output_path=os.path.join(FINAL_OUTPUT_DIR, "loss_curves.png"))
+
+    # --- F. FUSION ET SAUVEGARDE FINALE (CRITIQUE) ---
     print("\n FUSION DU MODÈLE (Merge & Unload)...")
+    
+    # 1. On s'assure que l'encodeur est sur CPU pour éviter les OOM pendant la fusion
     model.encoder.to("cpu")
+    
+    # 2. On fusionne les poids LoRA dans le modèle de base
+    # Cela transforme le modèle "Base + Adapter" en un "Modèle Unique"
     model.encoder = model.encoder.merge_and_unload()
     
+    # 3. Sauvegarde propre
+    # On s'assure que le dossier existe avant de sauvegarder
+    os.makedirs(FINAL_OUTPUT_DIR, exist_ok=True)
+
     print(f" Sauvegarde du modèle complet dans : {FINAL_OUTPUT_DIR}")
     model.encoder.save_pretrained(FINAL_OUTPUT_DIR, safe_serialization=True)
     tokenizer.save_pretrained(FINAL_OUTPUT_DIR)
-
-    # --- G. Test Final & Sauvegarde des Métriques ---
+    
+    # --- G. Test Final (Optionnel) ---
     print("\n Évaluation finale sur le Test Set...")
+    # Il faut remettre sur GPU pour le test si dispo
     model.encoder.to(device)
     
     # 2. CAPTURE DU RESULTAT DE TEST
@@ -334,12 +391,14 @@ def main():
     metrics_ds.save_to_disk(metrics_save_path)
     
     # Optionnel : Sauvegarde en JSON pur aussi (plus lisible humainement)
-    import json
     with open(os.path.join(FINAL_OUTPUT_DIR, "metrics.json"), "w") as f:
         json.dump(all_metrics, f, indent=4)
 
-    print(f"\n Métriques sauvegardées dans : {metrics_save_path}")
-    print(metrics_ds)
+    print(f"\n✅ Tout est sauvegardé dans : {FINAL_OUTPUT_DIR}")
+    print(f"   - Modèle : model.safetensors")
+    print(f"   - Tokenizer")
+    print(f"   - Courbes : loss_curves.png")
+    print(f"   - Métriques : metrics.json")
 
 if __name__ == "__main__":
     main()

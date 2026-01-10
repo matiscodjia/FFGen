@@ -22,10 +22,10 @@ client = OpenAI(
     base_url="https://api.deepseek.com"
 )
 
-OUTPUT_FILE = "dataset_c_piscine_semantic_validated.jsonl"
+OUTPUT_FILE = "dataset_c_piscine_semantic_chunk.jsonl"
 METRICS_FILE = "generation_metrics.jsonl"
 SUMMARY_FILE = "generation_summary.json"
-TOTAL_SAMPLES_TARGET = 15000
+TOTAL_SAMPLES_TARGET = 1000
 MAX_WORKERS = 5
 MAX_RETRIES = 2
 FILE_LOCK = threading.Lock()
