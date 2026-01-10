@@ -6,7 +6,7 @@ import numpy as np
 from typing import Dict, List, Any, Tuple
 import uuid
 from datetime import datetime
-from config import SIMILARITY_THRESHOLD, TOP_K_RESULTS, CONFIDENCE_THRESHOLD_WARNING
+from config import DISTANCE_THRESHOLD, TOP_K_RESULTS, CONFIDENCE_THRESHOLD_WARNING
 
 class CacheManager:
     def __init__(self, chroma_collection, encoder_fn, threshold=None):
@@ -18,7 +18,7 @@ class CacheManager:
         """
         self.collection = chroma_collection
         self.encoder_fn = encoder_fn
-        self.threshold = threshold if threshold is not None else SIMILARITY_THRESHOLD
+        self.threshold = threshold if threshold is not None else DISTANCE_THRESHOLD
 
     def calculate_confidence(self, distances: List[float]) -> float:
         """
@@ -67,9 +67,8 @@ class CacheManager:
                     where={"code": code},
                     limit=1
                 )
-                
                 if exact_matches and len(exact_matches['ids']) > 0:
-                    print("🎯 Cache: MATCH EXACT (String) trouvé !")
+                    print("Cache: MATCH EXACT (String) trouvé !")
                     return {
                         "status": "perfect_match",
                         "results": [{
@@ -88,7 +87,7 @@ class CacheManager:
                         "perfect_code_match": True
                     }
         except Exception as e:
-            print(f"⚠️ Warning exact match: {e}")
+            print(f"Warning exact match: {e}")
 
         # --- ÉTAPE 2 : RETRIEVAL (Recherche Vectorielle) ---
         # On a besoin des candidats pour faire les analyses suivantes
@@ -225,7 +224,7 @@ class CacheManager:
 
             return {
                 "total_documents": total_docs,
-                "similarity_threshold": SIMILARITY_THRESHOLD,
+                "similarity_threshold": DISTANCE_THRESHOLD,
                 "top_k": TOP_K_RESULTS
             }
         except Exception as e:

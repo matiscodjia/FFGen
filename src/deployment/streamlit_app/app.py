@@ -7,7 +7,9 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModel
 from datasets import load_dataset
+
 import chromadb
+
 from pathlib import Path
 import json
 import time
@@ -17,7 +19,7 @@ import sys
 from cache_manager import CacheManager
 from deepseek_caller import DeepSeekCaller
 from stats_logger import StatsLogger
-from config import SIMILARITY_THRESHOLD
+from config import DISTANCE_THRESHOLD
 from utils import load_css
 from huggingface_hub import login
 import os
@@ -31,6 +33,11 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+DATASET_ID = "matis35/chroma-rag-storage"
+REPO_FOLDER = "chroma_db_storage" # Le nom du dossier DANS le repo HF
+
+LOCAL_CACHE_DIR = Path("./chroma_cache")
 
 # ==========================================
 # CUSTOM CSS
@@ -140,11 +147,11 @@ def initialize_chromadb(force_reindex=False):
         if force_reindex:
             try: client.delete_collection("feedbacks")
             except: pass
-            collection = client.create_collection(name="feedbacks")
+            collection = client.create_collection(name="feedbacks", metadata={"hnsw:space": "cosine"})
         else:
             collection = client.get_collection(name="feedbacks")
     except:
-        collection = client.create_collection(name="feedbacks")
+        collection = client.create_collection(name="feedbacks", metadata={"hnsw:space": "cosine"})
 
     return client, collection
 
@@ -182,10 +189,10 @@ with st.sidebar:
 
     # Permettre de modifier le threshold dynamiquement
     if 'custom_threshold' not in st.session_state:
-        st.session_state.custom_threshold = SIMILARITY_THRESHOLD
+        st.session_state.custom_threshold = DISTANCE_THRESHOLD
 
     custom_threshold = st.slider(
-        "Similarity Threshold",
+        "Semantic distance threshold",
         min_value=0.1,
         max_value=1.0,
         value=st.session_state.custom_threshold,

@@ -11,7 +11,7 @@ import os
 # --- CONFIGURATION ---
 INPUT_FILE = "dataset_c_piscine_semantic_validated.jsonl"
 STRATIFY_COLUMN = "error_category" 
-REPO_ID = "matis35/cf-synt"
+REPO_ID = "matis35/cf-synt_V2"
 MIN_SAMPLES_PER_CLASS = 20 # Minimum requis pour éviter le crash (conseillé : 10+)
 # ---------------------
 

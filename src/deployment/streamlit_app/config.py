@@ -7,7 +7,7 @@ import os
 # ==========================================
 # CACHE CONFIGURATION
 # ==========================================
-SIMILARITY_THRESHOLD = 0.6  # Si distance < 0.3, considéré comme HIT
+DISTANCE_THRESHOLD = 0.5  # Si distance < 0.3, considéré comme HIT
 CONFIDENCE_THRESHOLD_WARNING = 0.9  # Si confiance < 0.9, afficher warning
 TOP_K_RESULTS = 3  # Nombre de candidats similaires à retourner
 
