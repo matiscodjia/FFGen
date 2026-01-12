@@ -22,10 +22,10 @@ client = OpenAI(
     base_url="https://api.deepseek.com"
 )
 
-OUTPUT_FILE = "dataset_c_piscine_semantic_chunk.jsonl"
+OUTPUT_FILE = "dataset_c_piscine_semantic_big.jsonl"
 METRICS_FILE = "generation_metrics.jsonl"
 SUMMARY_FILE = "generation_summary.json"
-TOTAL_SAMPLES_TARGET = 1000
+TOTAL_SAMPLES_TARGET = 80000
 MAX_WORKERS = 5
 MAX_RETRIES = 2
 FILE_LOCK = threading.Lock()
@@ -94,10 +94,40 @@ ERROR_TAXONOMY = [
     "Confusing Logical Operators (&& vs ||)"
 ]
 
+ERROR_TAXONOMY_ADDONS = [
+    # --- TYPES & IMPLICIT CONVERSIONS ---
+    "Signed/Unsigned Comparison (e.g. -1 < sizeof(type))",
+    "Integer Truncation (Large type cast to smaller type without check)",
+    "Implicit Float to Int Precision Loss",
+    "Modulo Logic Error on Negative Numbers",
+    "Char Signedness Assumption (char varies by compiler)",
+
+    # --- CONCURRENCY & SYSTEM (Crucial for Embedded) ---
+    "Data Race (Read-Modify-Write without Lock)",
+    "Deadlock (Circular Mutex Dependency)",
+    "Missing Volatile Qualifier (Loop optimization bug)",
+    "Signal Handler Unsafe Call (Calling printf/malloc inside signal)",
+    "Return of Pointer to Stack Variable",
+
+    # --- ADVANCED MEMORY ---
+    "Realloc Failure Leak (ptr = realloc(ptr...) overwrites original on null)",
+    "Memcpy Overlapping Memory (Should use memmove)",
+    "Sizeof Pointer vs Sizeof Pointee (sizeof(ptr) vs sizeof(*ptr))",
+    "Struct Member Padding Assumption (Direct memory access)",
+
+    # --- LOGIC & MACROS ---
+    "Macro Side Effect (Double evaluation e.g. MAX(i++, j))",
+    "Macro Precedence Error (Missing parentheses in definition)",
+    "Short-Circuit Evaluation Misuse (if (check && mutate()) side effect skipped)",
+    "Operator Precedence Logic (e.g. & vs ==)",
+    "Empty Statement Bug (while(cond); { block })"
+]
+
+ERROR_TAXONOMY_FULL = ERROR_TAXONOMY + ERROR_TAXONOMY_ADDONS
 # ==============================================================================
 # 3. CORPUS D'EXERCICES
 # ==============================================================================
-EXERCISES_FULL = [
+EXERCISES_MIX = [
     # --- BASE ALGORITHMIC ---
     "Calculate Factorial (Iterative)", "Reverse a String (In-place)", "Find Maximum in Integer Array",
     "Convert Celsius to Fahrenheit", "Check for Palindrome String", "Swap Two Integers using Pointers",
@@ -148,7 +178,124 @@ EXERCISES_FULL = [
     "Towers of Hanoi Solver", "Flood Fill Algorithm", "Binary Search Tree: Insert Node",
     "Binary Search Tree: Search Value", "Binary Search Tree: In-order Traversal", "N-Queens Problem (Backtracking)",
 ]
+# A. Les 100 exercices atomiques (Indispensables pour l'ancrage)
+EXERCISES_ATOMIC = [
+    # --- ARITHMETIC & LOGIC ---
+    "Add Two Integers", "Subtract Two Integers", "Multiply Two Integers", "Integer Division (Handle zero)",
+    "Modulo Operation", "Calculate Absolute Value", "Check if Number is Positive", "Check if Number is Negative",
+    "Find Max of Two Numbers", "Find Min of Two Numbers", "Check if Number is Even", "Check if Number is Odd",
+    "Calculate Average of Two Floats", "Celsius to Fahrenheit Formula", "Fahrenheit to Celsius Formula",
+    "Calculate Circle Area (Radius)", "Calculate Rectangle Perimeter", "Simple Power of 2 (Shift)",
+    "Clamp Value between Min and Max", "Swap Two Ints (Temp var)",
+    
+    # --- LOOPS & ITERATION ---
+    "Print Numbers 0 to N", "Print Numbers N to 0", "Print Even Numbers up to N", "Print Odd Numbers up to N",
+    "Sum Numbers 1 to N", "Factorial (Iterative)", "Count Digits in Integer", "Power of N (Iterative loop)",
+    "Print ASCII Table", "Print Alphabet a-z", "Repeat String N times", "Accumulate Array Values",
+    "Find First Occurence in Array", "Find Last Occurence in Array", "Count Specific Value in Array",
+    "Check if Array contains Value", "Verify Array is Sorted (Asc)", "Find Index of Max Value",
+    
+    # --- CHARS & STRINGS BASICS ---
+    "Check if Char is Alpha", "Check if Char is Digit", "Check if Char is Alphanumeric", "Check if Char is Printable",
+    "Convert Char to Lowercase", "Convert Char to Uppercase", "Check String Length (while)", "Check for Empty String",
+    "Copy String to Buffer", "Concatenate Two Strings", "Compare Two Strings (Equality)", "Find Char in String",
+    "Count Vowels in String", "Reverse String Output", "Check if String is Numeric", "String to Integer (Simple)",
+    "Replace Char in String", "Trim Leading Whitespace",
+    
+    # --- POINTERS & MEMORY BASICS ---
+    "Dereference Integer Pointer", "Change Value via Pointer", "Pointer Arithmetic (+1)", "Pointer Difference",
+    "Pass by Reference (Increment)", "Swap via Pointers", "Array Access via Pointers", "String Traversal via Pointer",
+    "Null Pointer Check", "Malloc Single Integer", "Free Single Integer", "Malloc Array of Ints", "Free Array of Ints",
+    "Memset Zero (Manual)", "Memcpy Manual (Forward)", "Sizeof Types Check", "Double Pointer Access (**ptr)",
+    "Define Point Struct", "Initialize Struct Members", "Copy Struct", "Pass Struct by Pointer",
+    
+    # --- BITWISE ATOMIC ---
+    "Bitwise AND", "Bitwise OR", "Bitwise XOR", "Bitwise NOT", "Left Shift (Multiply by 2)", "Right Shift (Divide by 2)",
+    "Check if Bit n is Set", "Set Bit n", "Clear Bit n", "Toggle Bit n"
+]
 
+# B. Les exercices extraits du Graphe (Piscine EPITA/42)
+EXERCISES_PISCINE = [
+    "My round (Rounding Float to Int)",
+    "My abs (Absolute Value)",
+    "Alphabet (Print Alphabet)",
+    "Hello World",
+    "My memcmp (Memory Compare)",
+    "My memset (Memory Set)",
+    "Functional Programming (Map/Reduce on Array)",
+    "Number Digits Rec (Recursive Count)",
+    "Assignment Operator (Struct/Class Copy)",
+    "Display Square (Nested Loops)",
+    "Digit (Check is digit)",
+    "Repeat (String Repetition)",
+    "Hello Friends (Variadic or Argv)",
+    "My strtok_r (Re-entrant String Tokenizer)",
+    "My strspn (String Span)",
+    "My strstr (String Search)",
+    "Binary Search With Pointers",
+    "Array Max Min",
+    "Simple fnmatch (Globbing Pattern)",
+    "My pow (Power Function)",
+    "Fact (Factorial Recursive)",
+    "Hill Array (Find Peak Element)",
+    "Bubble Sort",
+    "Null Terminated Arrays (Matrix Traversal)",
+    "Pointer Swap",
+    "Generic Void List (Linked List with void*)",
+    "Stack (LIFO Implementation)",
+    "My atoi base (String to Int with Base)",
+    "My atoi (String to Int)",
+    "Int Palindrome",
+    "Greatest Divisor",
+    "Grade (Conditional Logic)",
+    "My strcpy (String Copy)",
+    "My strlen (String Length)",
+    "FIFO (Queue Implementation)",
+    "Handling Complex (Struct Math)",
+    "My calloc (Allocate and Zero)",
+    "String Revert (In-place)",
+    "Fibo (Fibonacci Recursive)",
+    "TinyLibstream (Buffered IO Implementation)",
+    "IO Replace Line",
+    "Selection Sort",
+    "ASCII Carousel (String Rotation)",
+    "Bit Rotation (Circular Shift)",
+    "My strlowcase",
+    "My strcmp",
+    "Check Alphabet",
+    "IO Count Words (File Parsing)",
+    "IO Merge Files",
+    "Int sqrt (Integer Square Root)",
+    "Test a Bit (Bitwise Check)",
+    "Traffic lights (State Machine)",
+    "Sieve of Eratosthenes (Advanced)",
+    "Palindrome (String)",
+    "Pine (Print Tree Pattern)",
+    "My itoa (Int to String)",
+    "My C tail (Tail Command Implementation)",
+    "Binary Tree Dynamic Implementation",
+    "Element Count (List/Array)",
+    "Lakes (Flood Fill / Island Count)",
+    "Fibo Iter (Fibonacci Iterative)",
+    "Dlist (Doubly Linked List)",
+    "Variant (Union/Tagged Union)",
+    "Insertion Sort",
+    "My memcpy",
+    "Hanoi (Towers of Hanoi)",
+    "Frequency Analysis (Char Count)",
+    "Quick Sort",
+    "Heap (Binary Heap / Priority Queue)",
+    "Vector (Dynamic Array Resizing)",
+    "My memmove (Handle Overlap)",
+    "RotX (Caesar Cipher)",
+    "Levenshtein (Edit Distance)",
+    "Hash Map (Key-Value Store)",
+    "Add Int Pointers",
+    "My itoa base"
+]
+
+# Fusionner uniquement ce nouveau batch
+EXERCISES_FULL = EXERCISES_ATOMIC + EXERCISES_PISCINE + EXERCISES_MIX
 # ==============================================================================
 # 4. SYSTEM PROMPT RENFORCÉ
 # ==============================================================================
@@ -178,6 +325,9 @@ Generate C code with ONE specific SEMANTIC error (the "Target Bug") while the re
 4. **REALISTIC**: Student-written style (use i, j, ptr, tmp, result, etc.)
 
 5. **CAUSAL TEST FAILURES**: Failed tests must logically result from the bug.
+
+6. Don't show or provide informations about the bug in any manner in the code
+
 
 ## OUTPUT FORMAT
 Return STRICTLY VALID JSON with these exact keys:

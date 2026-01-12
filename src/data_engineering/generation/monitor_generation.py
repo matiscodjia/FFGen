@@ -11,7 +11,7 @@ import statistics
 from collections import Counter
 from datetime import datetime
 
-DATASET_FILE = "dataset_c_piscine_semantic_validated.jsonl"
+DATASET_FILE = "dataset_c_piscine_semantic_big.jsonl"
 METRICS_FILE = "generation_metrics.jsonl"
 SUMMARY_FILE = "generation_summary.json"
 REFRESH_INTERVAL = 5  # secondes
@@ -86,7 +86,7 @@ def print_stats(stats, metrics_data=None, summary=None):
     print(f" STATISTIQUES DU DATASET")
     print("=" * 70)
     print(f"\n Total samples : {stats['total']}")
-    print(f" Progression : {stats['total']}/15000 ({100*stats['total']/15000:.1f}%)")
+    print(f" Progression : {stats['total']}/15000 ({100*stats['total']/80000:.1f}%)")
 
     # Métriques de performance
     if metrics_data:

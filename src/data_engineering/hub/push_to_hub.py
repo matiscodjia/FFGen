@@ -15,7 +15,7 @@ LOCAL_MODEL_PATH = "./final_merged_model"
 BASE_MODEL_REF = "google/embeddinggemma-300m"
 
 # Le nom final sur le Hub (ex: ton-pseudo/Nom-Du-Modele)
-HUB_MODEL_NAME = "matis35/feedbacker" 
+HUB_MODEL_NAME = "matis35/feedbacker-2" 
 
 print("=" * 80)
 print("PUSH FULL MERGED MODEL TO HUGGING FACE HUB")

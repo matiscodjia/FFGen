@@ -277,10 +277,10 @@ def main():
 
     # --- C. Modèle & LoRA ---
     lora_config = LoraConfig(
-        r=32,                
+        r=16,                
         lora_alpha=64,      
         target_modules=["q_proj", "v_proj", "k_proj", "o_proj"], 
-        lora_dropout=0.05,
+        lora_dropout=0.1,
         bias="none",
         task_type=TaskType.FEATURE_EXTRACTION
     )
@@ -299,7 +299,7 @@ def main():
     # --- E. Entraînement ---
     training_args = TrainingArguments(
         output_dir="./checkpoints_temp", # Dossier temporaire pour les sauvegardes en cours
-        num_train_epochs=5,
+        num_train_epochs=3,
         per_device_train_batch_size=64, # Ajuster selon VRAM
         per_device_eval_batch_size=64,
         learning_rate=2e-4,
@@ -394,7 +394,7 @@ def main():
     with open(os.path.join(FINAL_OUTPUT_DIR, "metrics.json"), "w") as f:
         json.dump(all_metrics, f, indent=4)
 
-    print(f"\n✅ Tout est sauvegardé dans : {FINAL_OUTPUT_DIR}")
+    print(f"\nTout est sauvegardé dans : {FINAL_OUTPUT_DIR}")
     print(f"   - Modèle : model.safetensors")
     print(f"   - Tokenizer")
     print(f"   - Courbes : loss_curves.png")
