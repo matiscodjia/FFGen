@@ -6,33 +6,23 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset
-import numpy as np
-import matplotlib.pyplot as plt
-from tqdm import tqdm
 import json
-import re
-
 from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments
-# On n'a plus besoin de PEFT/LoRA car on va fine-tuner tous les poids (ou recharger LoRA si besoin)
-# Ici, on recharge le modèle fusionné, donc c'est un modèle standard.
+from peft import LoraConfig, get_peft_model, TaskType
 
 # ==========================================
 # 1. CONFIGURATION
 # ==========================================
-# IMPORTANT : On part de ton modèle DÉJÀ entrainé (Step 0)
 PRETRAINED_MODEL_PATH = "matis35/feedbacker-2" 
-# Le fichier généré par le script de mining
-HARD_NEGATIVES_FILE = "train_hard_negatives.json" 
-# Où sauvegarder le modèle "Expert" final
-OUTPUT_DIR = "./final_model_hard_negatives"
+HARD_NEGATIVES_FILE = "train_hard_negatives_cleaned.json"
+OUTPUT_DIR = "./final_model_infonce_merged" # Nouveau dossier de sortie
 
 # Paramètres
-MAX_LENGTH_CODE = 512      # On garde ta config corrigée
+MAX_LENGTH_CODE = 512
 MAX_LENGTH_FEEDBACK = 128
-TRIPLET_MARGIN = 0.5       # Marge standard pour Cosine Distance
 
 # ==========================================
-# 2. DATASET (Triplet Parsing)
+# 2. DATASET
 # ==========================================
 class TripletDataset(Dataset):
     def __init__(self, json_file):
@@ -41,7 +31,6 @@ class TripletDataset(Dataset):
             raw_data = json.load(f)
             
         self.samples = []
-        # APLATISSEMENT : On transforme {code, pos, [neg1, neg2]} en plusieurs triplets
         for item in raw_data:
             anchor = item["code"]
             positive = item["positive"]
@@ -54,7 +43,7 @@ class TripletDataset(Dataset):
                     "negative": neg
                 })
         
-        print(f"   -> {len(raw_data)} entrées brutes converties en {len(self.samples)} triplets d'entrainement.")
+        print(f"   -> {len(raw_data)} entrées converties en {len(self.samples)} triplets.")
 
     def __len__(self):
         return len(self.samples)
@@ -63,7 +52,7 @@ class TripletDataset(Dataset):
         return self.samples[idx]
 
 # ==========================================
-# 3. COLLATOR (Tokenization A, P, N)
+# 3. COLLATOR
 # ==========================================
 class TripletCollator:
     def __init__(self, tokenizer, max_code_len, max_feed_len):
@@ -76,7 +65,6 @@ class TripletCollator:
         positives = [x["positive"] for x in batch]
         negatives = [x["negative"] for x in batch]
         
-        # Tokenization séparée
         a_enc = self.tokenizer(anchors, padding=True, truncation=True, max_length=self.max_code_len, return_tensors="pt")
         p_enc = self.tokenizer(positives, padding=True, truncation=True, max_length=self.max_feed_len, return_tensors="pt")
         n_enc = self.tokenizer(negatives, padding=True, truncation=True, max_length=self.max_feed_len, return_tensors="pt")
@@ -91,16 +79,40 @@ class TripletCollator:
         }
 
 # ==========================================
-# 4. MODÈLE & LOSS
+# 4. MODÈLE AVEC LORA & FUSION
 # ==========================================
-class BiEncoderTriplet(nn.Module):
+class BiEncoderInfoNCE(nn.Module):
     def __init__(self, model_path):
         super().__init__()
-        # On charge le modèle déjà entrainé
-        print(f"Chargement du backbone expert : {model_path}")
-        self.encoder = AutoModel.from_pretrained(model_path)
-        # Gradient Checkpointing pour économiser la VRAM (Important car on encode 3x plus)
-        self.encoder.gradient_checkpointing_enable() 
+        print(f"🧠 Chargement du backbone : {model_path}")
+        
+        base_model = AutoModel.from_pretrained(
+            model_path,
+            torch_dtype=torch.float16,
+            device_map="auto"
+        )
+        
+        # Gradient Checkpointing pour économiser la VRAM pendant le train
+        base_model.gradient_checkpointing_enable()
+        if hasattr(base_model, "enable_input_require_grads"):
+            base_model.enable_input_require_grads()
+        else:
+            def make_inputs_require_grad(module, input, output):
+                output.requires_grad_(True)
+            base_model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+
+        # Config LoRA
+        peft_config = LoraConfig(
+            task_type=TaskType.FEATURE_EXTRACTION, 
+            r=16,
+            lora_alpha=32,
+            lora_dropout=0.05,
+            target_modules=["q_proj", "v_proj", "o_proj", "k_proj", "gate_proj", "up_proj", "down_proj"],
+            bias="none"
+        )
+        
+        self.encoder = get_peft_model(base_model, peft_config)
+        self.encoder.print_trainable_parameters()
 
     def mean_pooling(self, token_embeddings, attention_mask):
         input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
@@ -111,83 +123,99 @@ class BiEncoderTriplet(nn.Module):
     def encode(self, input_ids, attention_mask):
         outputs = self.encoder(input_ids, attention_mask)
         emb = self.mean_pooling(outputs.last_hidden_state, attention_mask)
-        return F.normalize(emb, p=2, dim=1) # Toujours normaliser pour Cosine Sim
+        return F.normalize(emb, p=2, dim=1)
 
     def forward(self, anchor_input_ids, anchor_attention_mask, pos_input_ids, pos_attention_mask, neg_input_ids, neg_attention_mask):
-        # On encode les 3 parties
         anchor_emb = self.encode(anchor_input_ids, anchor_attention_mask)
         pos_emb = self.encode(pos_input_ids, pos_attention_mask)
         neg_emb = self.encode(neg_input_ids, neg_attention_mask)
-        
         return anchor_emb, pos_emb, neg_emb
+    
+    def merge_and_save(self, output_dir):
+        """Fusionne LoRA dans le modèle de base et sauvegarde le tout."""
+        print("🔄 Fusion des poids LoRA dans le modèle de base...")
+        
+        # 1. On repasse le modèle en mode eval pour être propre
+        self.encoder.eval()
+        
+        # 2. Fusion (Merge) : Les poids LoRA sont ajoutés aux poids du backbone
+        # merge_and_unload() renvoie le modèle de base standard (AutoModel)
+        merged_model = self.encoder.merge_and_unload()
+        
+        print(f"💾 Sauvegarde du modèle complet dans {output_dir}...")
+        merged_model.save_pretrained(output_dir)
 
-class TripletTrainer(Trainer):
+# ==========================================
+# 5. TRAINER INFONCE
+# ==========================================
+class InfoNCETrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        # 1. Forward Pass
         anchor_emb, pos_emb, neg_emb = model(
             inputs["anchor_input_ids"], inputs["anchor_attention_mask"],
             inputs["pos_input_ids"], inputs["pos_attention_mask"],
             inputs["neg_input_ids"], inputs["neg_attention_mask"]
         )
         
-        # 2. Calcul des similarités (Cosinus)
-        # Note : Les embeddings sont déjà normalisés, donc dot product = cosine similarity
-        sim_pos = torch.sum(anchor_emb * pos_emb, dim=-1) # Proche de 1 idéalement
-        sim_neg = torch.sum(anchor_emb * neg_emb, dim=-1) # Proche de -1 ou 0 idéalement
+        # Concaténation Positifs + Négatifs Difficiles (Hard Negatives)
+        target_emb = torch.cat([pos_emb, neg_emb], dim=0)
         
-        # 3. Triplet Loss avec Marge
-        # On veut: sim_pos > sim_neg + margin
-        # Loss = ReLU(sim_neg - sim_pos + margin)
-        loss = torch.mean(torch.relu(sim_neg - sim_pos + TRIPLET_MARGIN))
+        # Similarité (Batch x 2*Batch)
+        scores = torch.mm(anchor_emb, target_emb.transpose(0, 1))
+        
+        # Temperature Scaling
+        logit_scale = 20.0 
+        scores = scores * logit_scale
+        
+        # Labels : L'Ancre i doit matcher la Cible i
+        labels = torch.arange(anchor_emb.size(0), device=scores.device)
+        
+        loss_fct = nn.CrossEntropyLoss()
+        loss = loss_fct(scores, labels)
         
         if return_outputs:
             return (loss, (anchor_emb, pos_emb, neg_emb))
         return loss
 
-
 # ==========================================
 # 6. MAIN
 # ==========================================
 def main():
-    print("🚀 Démarrage du Fine-Tuning 'Hard Negatives'...")
+    print("Démarrage du Fine-Tuning InfoNCE (Hard Negs + In-Batch)...")
     
-    # A. Chargement
     tokenizer = AutoTokenizer.from_pretrained(PRETRAINED_MODEL_PATH)
     train_dataset = TripletDataset(HARD_NEGATIVES_FILE)
     collator = TripletCollator(tokenizer, MAX_LENGTH_CODE, MAX_LENGTH_FEEDBACK)
     
-    model = BiEncoderTriplet(PRETRAINED_MODEL_PATH)
+    model = BiEncoderInfoNCE(PRETRAINED_MODEL_PATH)
     
-    # B. Config Entrainement
-    # Triplet Loss converge vite car on part déjà d'un bon modèle
-    # 1 ou 2 époques suffisent souvent pour corriger les erreurs sans overfitter
     training_args = TrainingArguments(
-        output_dir="./checkpoints_triplet",
-        num_train_epochs=2,              # Court mais intense
-        per_device_train_batch_size=32,  # 32 triplets = 96 encodages ! Attention VRAM
-        learning_rate=1e-5,              # LR très faible pour ne pas casser le modèle existant
+        output_dir="./checkpoints_infonce_merged",
+        num_train_epochs=3,              
+        per_device_train_batch_size=32, 
+        gradient_accumulation_steps=2,   
+        learning_rate=5e-5,             
         warmup_ratio=0.1,
-        bf16=True,                       # Accélération A40
-        logging_steps=50,
+        bf16=True,
+        logging_steps=10,
         save_strategy="epoch",
         report_to="none",
         remove_unused_columns=False
     )
     
-    trainer = TripletTrainer(
+    trainer = InfoNCETrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         data_collator=collator
     )
     
-    # C. Train
     trainer.train()
     
-    # D. Sauvegarde Finale
-    print(f"\nSauvegarde du modèle expert dans {OUTPUT_DIR}...")
-    model.encoder.save_pretrained(OUTPUT_DIR)
+    print("\nEntraînement terminé. Début de la fusion...")
+    # Sauvegarde Finale : Modèle fusionné + Tokenizer
+    model.merge_and_save(OUTPUT_DIR)
     tokenizer.save_pretrained(OUTPUT_DIR)
+    print(f"Modèle complet (Stand-alone) sauvegardé dans : {OUTPUT_DIR}")
 
 if __name__ == "__main__":
     main()
