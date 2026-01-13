@@ -13,7 +13,7 @@ from peft import LoraConfig, get_peft_model, TaskType
 # ==========================================
 # 1. CONFIGURATION
 # ==========================================
-PRETRAINED_MODEL_PATH = "matis35/feedbacker-2" 
+PRETRAINED_MODEL_PATH = "google/embeddinggemma-300m" 
 HARD_NEGATIVES_FILE = "train_hard_negatives_cleaned.json"
 OUTPUT_DIR = "./final_model_infonce_merged" # Nouveau dossier de sortie
 
