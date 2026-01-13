@@ -7,17 +7,18 @@ import re
 from tqdm import tqdm
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModel
+from peft import PeftModel
 
 # ==========================================
 # CONFIGURATION
 # ==========================================
 # Le chemin vers ton modèle sauvegardé (celui que tu veux évaluer)
-MODEL_PATH = "google/embeddinggemma-300m" 
+MODEL_PATH = "./final_model_hard_negatives_lora" 
 DATASET_ID = "matis35/cf-synt_V2"
 BATCH_SIZE = 64
 # Détection automatique du périphérique
 if torch.cuda.is_available():
-    DEVICE = torch.device("cuda")
+    DEVICE = torch.device("cpu")
     print(f"✅ Accélérateur détecté : CUDA ({torch.cuda.get_device_name(0)})")
 elif torch.backends.mps.is_available():
     DEVICE = torch.device("mps")
@@ -27,6 +28,10 @@ else:
     print("⚠️ Aucun accélérateur détecté : CPU utilisé (Lent)")
 
 print(f"🚀 Évaluation Full-Corpus sur {DEVICE}...")
+
+
+base_model = AutoModel.from_pretrained("matis35/feedbacker-2")
+model = PeftModel.from_pretrained(base_model, "./final_model_hard_negatives_lora")
 
 # ==========================================
 # FONCTIONS UTILITAIRES
