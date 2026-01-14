@@ -9,17 +9,42 @@ from torch.utils.data import Dataset
 import json
 from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments
 from peft import LoraConfig, get_peft_model, TaskType
-
+import re
 # ==========================================
 # 1. CONFIGURATION
 # ==========================================
 PRETRAINED_MODEL_PATH = "google/embeddinggemma-300m" 
 HARD_NEGATIVES_FILE = "train_hard_negatives_cleaned.json"
-OUTPUT_DIR = "./final_model_infonce_merged" # Nouveau dossier de sortie
+OUTPUT_DIR = "./final_model_infonce"
 
 # Paramètres
 MAX_LENGTH_CODE = 512
 MAX_LENGTH_FEEDBACK = 128
+
+
+# ==========================================
+# 1. NETTOYAGE CODE C
+# ==========================================
+def clean_c_code(code_string):
+    if not code_string: return ""
+    
+    # 1. Supprimer les commentaires blocs /* ... */
+    # [\s\S] permet de matcher aussi les sauts de ligne
+    code_string = re.sub(r'/\*[\s\S]*?\*/', '', code_string)
+    
+    # 2. Supprimer les commentaires ligne // ...
+    code_string = re.sub(r'//.*', '', code_string)
+    
+    # 3. Supprimer la fonction main et tout ce qui suit
+    # On cherche "int main(...){" ou "void main(...){" et on coupe tout jusqu'à la fin
+    # C'est une heuristique robuste car le main sert souvent de runner de test à la fin du fichier
+    code_string = re.sub(r'(int|void)\s+main\s*\(.*?\)\s*\{[\s\S]*', '', code_string)
+    
+    # 4. (Optionnel) Supprimer les directives #include si tu veux vraiment juste la logique
+    # code_string = re.sub(r'#include.*', '', code_string)
+    
+    # 5. Nettoyage des espaces vides excessifs
+    return code_string.strip()
 
 # ==========================================
 # 2. DATASET
@@ -32,7 +57,7 @@ class TripletDataset(Dataset):
             
         self.samples = []
         for item in raw_data:
-            anchor = item["code"]
+            anchor = clean_c_code(item["code"])
             positive = item["positive"]
             negatives = item["negatives"]
             
@@ -84,7 +109,7 @@ class TripletCollator:
 class BiEncoderInfoNCE(nn.Module):
     def __init__(self, model_path):
         super().__init__()
-        print(f"🧠 Chargement du backbone : {model_path}")
+        print(f"Chargement du backbone : {model_path}")
         
         base_model = AutoModel.from_pretrained(
             model_path,
@@ -133,7 +158,7 @@ class BiEncoderInfoNCE(nn.Module):
     
     def merge_and_save(self, output_dir):
         """Fusionne LoRA dans le modèle de base et sauvegarde le tout."""
-        print("🔄 Fusion des poids LoRA dans le modèle de base...")
+        print("Fusion des poids LoRA dans le modèle de base...")
         
         # 1. On repasse le modèle en mode eval pour être propre
         self.encoder.eval()
@@ -142,7 +167,7 @@ class BiEncoderInfoNCE(nn.Module):
         # merge_and_unload() renvoie le modèle de base standard (AutoModel)
         merged_model = self.encoder.merge_and_unload()
         
-        print(f"💾 Sauvegarde du modèle complet dans {output_dir}...")
+        print(f"Sauvegarde du modèle complet dans {output_dir}...")
         merged_model.save_pretrained(output_dir)
 
 # ==========================================
@@ -191,7 +216,7 @@ def main():
     training_args = TrainingArguments(
         output_dir="./checkpoints_infonce_merged",
         num_train_epochs=3,              
-        per_device_train_batch_size=32, 
+        per_device_train_batch_size=256, 
         gradient_accumulation_steps=2,   
         learning_rate=5e-5,             
         warmup_ratio=0.1,

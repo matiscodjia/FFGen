@@ -8,8 +8,8 @@ from tqdm import tqdm
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModel
 
-MODEL_PATH = "matis35/feedbacker-infonce" 
-
+MODEL_PATH = "matis35/feedbacker-2" 
+#Salesforce/SFR-Embedding-Code-400M_R
 
 DATASET_ID = "matis35/cf-synt_V2"
 BATCH_SIZE = 64
@@ -92,7 +92,7 @@ def main():
     test_data = dataset["test"].to_list() if "test" in dataset else dataset["validation"].to_list()
     print(f"   -> Évaluation sur {len(test_data)} requêtes (Test Set)...")
     
-    codes = [x["code"] for x in test_data]
+    codes = [clean_c_code(x["code"]) for x in test_data]
     targets = [x["feedback"] for x in test_data]
 
     # ---------------------------------------------------------

@@ -300,8 +300,8 @@ def main():
     training_args = TrainingArguments(
         output_dir="./checkpoints_temp", # Dossier temporaire pour les sauvegardes en cours
         num_train_epochs=3,
-        per_device_train_batch_size=64, # Ajuster selon VRAM
-        per_device_eval_batch_size=64,
+        per_device_train_batch_size=256, # Ajuster selon VRAM
+        per_device_eval_batch_size=256,
         learning_rate=2e-4,
         bf16=True, # Mettre False si ancien GPU ou erreur
         logging_steps=10,    
